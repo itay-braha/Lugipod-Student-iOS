@@ -63,10 +63,13 @@ struct GroupCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(alignment: .top) {
-            // The subject colour as a bar along the top edge.
-            UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24).fill(tint.accent).frame(height: 5)
+        .background {
+            // White card with the subject colour as a bar along the top edge, clipped to the card's own rounded corners.
+            ZStack(alignment: .top) {
+                Color.white
+                tint.accent.frame(height: 5)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         }
         .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(live ? Theme.emerald500 : Theme.slate200, lineWidth: live ? 2 : 1))
         .shadow(color: Theme.shadowSoft1, radius: 1, y: 1)

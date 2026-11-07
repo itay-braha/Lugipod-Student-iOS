@@ -137,6 +137,7 @@ struct MainTabView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             AppTabBar(selection: $router.tab)
         }
+        .background(ScreenBackground())
         .tint(Theme.brand600)
         .environmentObject(inbox)
         .environmentObject(home)

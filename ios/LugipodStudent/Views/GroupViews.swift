@@ -64,6 +64,7 @@ struct GroupDetailView: View {
         .navigationTitle(group?.title ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .task { await model.load(groupId) }
         .refreshable { await model.load(groupId); await home.load() }
     }
@@ -75,7 +76,7 @@ struct GroupDetailView: View {
                 ForEach(up) { l in
                     HStack(spacing: 12) {
                         Image(systemName: "calendar").foregroundStyle(tint.accent)
-                        Text(HebrewDate.lessonText(l.scheduledAt)).font(.heebo(15, 700)).foregroundStyle(Theme.ink)
+                        Text(HebrewDate.dayLabel(l.scheduledAt)).font(.heebo(15, 700)).foregroundStyle(Theme.ink)
                         if l.extra { Pill(text: "נוסף", fg: Theme.amber800, bg: Theme.amber100) }
                         Spacer()
                         Text(HebrewDate.timeRange(l.scheduledAt, minutes: l.durationMin)).font(.heebo(13, 600)).foregroundStyle(Theme.slate500)
