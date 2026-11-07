@@ -48,6 +48,8 @@ final class HomeModel: ObservableObject {
     @Published private(set) var data: StudentHome?
     @Published private(set) var loading = false
     @Published var error: String?
+    /// An open "same time next week?" offer, if there is one for this student.
+    @Published private(set) var encore: ActiveRebook?
 
     init() {
         #if DEBUG
@@ -64,6 +66,7 @@ final class HomeModel: ObservableObject {
             data = try API.decoder.decode(StudentHome.self, from: raw)
             LocalCache.write("home", raw)
             error = nil
+            encore = await Rebook.active()
         } catch APIError.notAStudent {
             await AuthStore.shared.signOut(notice: "החשבון הזה אינו חשבון תלמיד. האפליקציה הזו מיועדת לתלמידים (למורים יש אפליקציה נפרדת).")
         } catch APIError.notSignedIn {
@@ -121,6 +124,7 @@ struct MainTabView: View {
     @StateObject private var home = HomeModel()
     @StateObject private var daily = DailyModel()
     @StateObject private var chat = LugichatModel()
+    @EnvironmentObject private var celebration: CelebrationCenter
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -143,7 +147,20 @@ struct MainTabView: View {
         .environmentObject(home)
         .environmentObject(daily)
         .environmentObject(chat)
-        .task { await refresh() }
+        .overlay { CelebrationHost(center: celebration) }
+        // Lugis were spent (a lesson was charged): a few coins float up, so spending is felt, never silent.
+        .onChange(of: home.data?.consumption.consumedLugis) { old, new in
+            guard let old, let new, new > old + 0.01, scenePhase == .active else { return }
+            let spent = new - old
+            celebration.coins("−\(spent == spent.rounded() ? String(Int(spent)) : String(format: "%.1f", spent)) לוגי")
+        }
+        .task {
+            await refresh()
+            #if DEBUG
+            if PreviewMode.screen == "celebrate" { celebration.fox("כל הכבוד!", subtitle: "שמרת על הרצף · +5 נקודות", pose: .cheer, big: true) }
+            if PreviewMode.screen == "coins" { celebration.coins("−2 לוגי") }
+            #endif
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await refresh() } }
         }

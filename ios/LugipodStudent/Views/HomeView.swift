@@ -65,10 +65,14 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(HebrewDate.longDay(Date())).font(.heebo(13, 600)).foregroundStyle(Theme.slate500)
-                Text(firstName.isEmpty ? "שלום 👋" : "שלום, \(firstName) 👋").font(.heebo(28, 800)).foregroundStyle(Theme.ink)
+        HStack(alignment: .center, spacing: 12) {
+            AvatarView(name: model.data?.student.name ?? "", avatar: model.data?.badge?.avatar, frame: model.data?.badge?.frame, size: 54)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(firstName.isEmpty ? "שלום 👋" : "שלום, \(firstName) 👋").font(.heebo(24, 800)).foregroundStyle(Theme.ink).lineLimit(1)
+                HStack(spacing: 6) {
+                    if let title = model.data?.badge?.title { TitleChip(title: title) }
+                    if let level = model.data?.points?.level { Pill(text: "⚡ \(level)", fg: Theme.brand700, bg: Theme.brand50) }
+                }
             }
             Spacer(minLength: 8)
             if let streak = model.data?.dailyChallenge.streak, streak > 0 {
@@ -120,6 +124,7 @@ struct HomeView: View {
 
     @ViewBuilder private var content: some View {
         if let data = model.data {
+            if let offer = model.encore { EncoreCardView(rebook: offer) { Task { await model.load() } } }
             groupsSection(data.groups)
             familyCard(data)
             libraryTile

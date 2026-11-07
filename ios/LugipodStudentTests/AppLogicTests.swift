@@ -112,4 +112,33 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(HebrewDate.monthYear("2026-11"), "נובמבר 2026")
         XCTAssertEqual(HebrewDate.monthYear(nil), "")
     }
+
+    func testBadgeAndPointsDecode() throws {
+        let home = try API.decoder.decode(StudentHome.self, from: PreviewMode.response(method: "GET", path: "/api/native/student/home"))
+        XCTAssertEqual(home.badge?.title?.label, "חוקר מכניקה")
+        XCTAssertEqual(home.badge?.frame, "frame_violet")
+        XCTAssertEqual(home.points?.level, "להבה")
+        XCTAssertEqual(home.points?.nextLevelAt, 500)
+    }
+
+    func testRebookOfferDecodes() throws {
+        let offer = try XCTUnwrap(PreviewMode.rebook())
+        XCTAssertEqual(offer.myResponse, "pending")
+        XCTAssertEqual(offer.peers.filter { !$0.isMe && $0.response == "yes" }.count, 1)
+    }
+
+    func testBridgeMessages() {
+        XCTAssertEqual(BridgeMessage(body: ["type": "lessonLeft", "leftEarly": true, "teacherName": "איתי"]), .lessonLeft(leftEarly: true, teacherName: "איתי"))
+        XCTAssertEqual(BridgeMessage(body: ["type": "lessonLeft"]), .lessonLeft(leftEarly: false, teacherName: nil))
+        XCTAssertEqual(BridgeMessage(body: ["type": "closeRoom"]), .closeRoom)
+        XCTAssertNil(BridgeMessage(body: ["type": "startCall", "kind": "evil", "ref": "x"]))
+    }
+
+    func testAvatarAndCelebrations() {
+        let center = CelebrationCenter()
+        center.fox("כל הכבוד", pose: .cheer)
+        XCTAssertNotNil(center.fox)
+        center.coins("−2 לוגי")
+        XCTAssertEqual(center.coins?.text, "−2 לוגי")
+    }
 }

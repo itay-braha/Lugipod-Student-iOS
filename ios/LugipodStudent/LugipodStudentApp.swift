@@ -6,6 +6,7 @@ struct LugipodStudentApp: App {
     @StateObject private var auth = AuthStore.shared
     @StateObject private var router = AppRouter()
     @StateObject private var call = CallManager()
+    @StateObject private var celebration = CelebrationCenter()
 
     init() { AppAppearance.configure() }
 
@@ -15,6 +16,7 @@ struct LugipodStudentApp: App {
                 .environmentObject(auth)
                 .environmentObject(router)
                 .environmentObject(call)
+                .environmentObject(celebration)
                 .environment(\.layoutDirection, .rightToLeft)
                 .environment(\.locale, Locale(identifier: "he_IL"))
                 .preferredColorScheme(.light)

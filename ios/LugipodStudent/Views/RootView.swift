@@ -12,6 +12,9 @@ struct RootView: View {
             LessonCallScreen(path: "/meeting/lesson/preview")
                 .environment(\.layoutDirection, .rightToLeft)
                 .task { call.loadPreview() }
+        } else if PreviewMode.screen?.hasPrefix("post-lesson") == true {
+            // Screenshots only: the "how was it?" flow with the next-lesson offer.
+            PostLessonFlow(kind: "lesson", ref: "preview", leftEarly: false, teacherName: "איתי") {}
         } else {
             content
         }

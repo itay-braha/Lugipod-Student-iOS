@@ -30,6 +30,7 @@ final class CallManager: NSObject, ObservableObject {
     private var client: CallClient?
     private var session: (kind: String, ref: String)?
     private var heartbeat: Task<Void, Never>?
+    private var observers: [NSObjectProtocol] = []
 
     // MARK: - Lifecycle
 
@@ -74,6 +75,7 @@ final class CallManager: NSObject, ObservableObject {
     func stop() {
         heartbeat?.cancel()
         heartbeat = nil
+        removeObservers()
         client?.leave(completion: nil)
         client = nil
         session = nil
@@ -151,22 +153,46 @@ final class CallManager: NSObject, ObservableObject {
         client = nil
         heartbeat?.cancel()
         heartbeat = nil
+        removeObservers()
         phase = .failed(message)
     }
 
     // MARK: - Presence
 
+    /// One presence beat. It also tells the teacher what the student is watching on (phone or tablet) and whether the lesson is in front of
+    /// them: `active` is false while the app is in the background or covered (the teacher sees a dimmed "not watching" sign).
+    private func beat() async {
+        guard let session else { return }
+        let (device, active) = await MainActor.run {
+            (UIDevice.current.userInterfaceIdiom == .pad ? "tablet" : "phone", UIApplication.shared.applicationState == .active)
+        }
+        _ = try? await API.post("/api/meeting/state", json: [
+            "kind": session.kind, "ref": session.ref, "intent": "heartbeat",
+            "client": ["device": device, "active": active],
+        ])
+    }
+
     @MainActor
     private func startHeartbeat() {
-        guard let session else { return }
+        guard session != nil else { return }
         heartbeat?.cancel()
-        heartbeat = Task {
+        heartbeat = Task { [weak self] in
             while !Task.isCancelled {
-                _ = try? await API.post("/api/meeting/state",
-                                        json: ["kind": session.kind, "ref": session.ref, "intent": "heartbeat"])
+                await self?.beat()
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }
+        // Say so straight away when the app goes to the background or comes back, not at the next 5 s beat.
+        for name in [UIApplication.didBecomeActiveNotification, UIApplication.willResignActiveNotification, UIApplication.didEnterBackgroundNotification] {
+            observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { await self?.beat() }
+            })
+        }
+    }
+
+    private func removeObservers() {
+        observers.forEach { NotificationCenter.default.removeObserver($0) }
+        observers = []
     }
 }
 

@@ -66,12 +66,27 @@ struct StudentHome: Decodable, Equatable {
         let creditLugis: Double
     }
 
+    struct Badge: Decodable, Equatable {
+        struct Title: Decodable, Equatable { let emoji: String; let label: String; let rarity: String? }
+        let title: Title?
+        let avatar: String?
+        let frame: String?
+    }
+    struct Points: Decodable, Equatable {
+        let level: String
+        let balance: Int
+        let lifetime: Int
+        let nextLevelAt: Int?
+        let missionsOpen: Int
+    }
     struct Family: Decodable, Equatable { let hasParent: Bool }
     struct Daily: Decodable, Equatable { let doneToday: Bool; let streak: Int }
 
     let student: Student
     let groups: [Group]
     let consumption: Consumption
+    let badge: Badge?
+    let points: Points?
     let family: Family
     let dailyChallenge: Daily
     let lugichat: Quota?
@@ -217,3 +232,19 @@ enum HebrewDate {
         return (seconds > 0 ? "בעוד " : "לפני ") + amount
     }
 }
+
+/// The next-lesson booking offered after a lesson ("Encore"): GET /api/rebook/active.
+struct ActiveRebook: Decodable, Equatable {
+    struct Peer: Decodable, Equatable { let name: String; let response: String; let isMe: Bool }
+    let proposalId: String
+    let subjectName: String
+    let emoji: String
+    let myResponse: String
+    let peers: [Peer]
+    let isNearMiss: Bool
+    let teacherName: String?
+    let proposedSlotLabel: String?
+    let originalSlotLabel: String?
+}
+
+struct ActiveRebookResponse: Decodable { let active: ActiveRebook? }

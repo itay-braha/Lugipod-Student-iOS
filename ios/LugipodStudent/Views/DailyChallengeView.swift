@@ -3,6 +3,7 @@ import SwiftUI
 struct DailyChallengeView: View {
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var model: DailyModel
+    @EnvironmentObject private var celebration: CelebrationCenter
 
     var body: some View {
         VStack(spacing: 0) {
@@ -84,7 +85,17 @@ struct DailyChallengeView: View {
                 .padding(.horizontal, 16).padding(.top, 4)
                 .frame(maxWidth: .infinity)
             }
-            .onChange(of: model.result) { _, r in if r != nil { withAnimation { proxy.scrollTo("end") } } }
+            .onChange(of: model.result) { _, r in
+                guard let r else { return }
+                withAnimation { proxy.scrollTo("end") }
+                if r.correct {
+                    // A 10-day streak gets the big one; every other right answer a short cheer.
+                    let milestone = model.streak > 0 && model.streak % 10 == 0 && model.correctCount == 1
+                    celebration.fox(milestone ? "רצף של \(model.streak) ימים! 🎉" : "כל הכבוד! 🔥",
+                                    subtitle: milestone ? "זכית בלוגי מתנה 🪙" : (model.correctCount == 1 ? "שמרת על הרצף · +5 נקודות" : nil),
+                                    pose: milestone ? .cheer : .praise, big: milestone)
+                }
+            }
         }
     }
 

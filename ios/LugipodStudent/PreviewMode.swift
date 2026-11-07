@@ -2,7 +2,7 @@ import Foundation
 
 /// A development aid: `LUGIPOD_PREVIEW=<screen>` (an environment variable, set by CI through `simctl launch`) makes a DEBUG build
 /// skip sign-in and show a screen with sample data, so every screen can be screenshotted in the simulator without a server.
-/// Screens: call, login, login-code, login-email, home, home-parent, group, ask, lugichat, lugichat-thread, lugichat-limit, daily, daily-answered, more, alerts.
+/// Screens: celebrate, coins, post-lesson, post-lesson-encore, call, login, login-code, login-email, home, home-parent, group, ask, lugichat, lugichat-thread, lugichat-limit, daily, daily-answered, more, alerts.
 /// Release builds (TestFlight) compile this away: `isOn` is always false there.
 enum PreviewMode {
     #if DEBUG
@@ -16,6 +16,7 @@ enum PreviewMode {
         case "lugichat", "lugichat-thread", "lugichat-limit": return .lugichat
         case "daily", "daily-answered": return .practice
         case "more": return .more
+        case "celebrate", "coins": return .practice
         default: return nil
         }
     }
@@ -35,6 +36,15 @@ enum PreviewMode {
         default:
             return nil
         }
+    }
+
+    /// An open "same time next week?" offer.
+    static func rebook() -> ActiveRebook? {
+        let json = """
+        {"proposalId":"p1","subjectName":"מתמטיקה","emoji":"📐","myResponse":"pending","isNearMiss":false,"teacherName":"איתי","proposedSlotLabel":null,"originalSlotLabel":null,
+         "peers":[{"name":"נועה כהן","response":"pending","isMe":true},{"name":"דנה לוי","response":"yes","isMe":false},{"name":"יואב מזרחי","response":"pending","isMe":false}]}
+        """
+        return try? API.decoder.decode(ActiveRebook.self, from: Data(json.utf8))
     }
 
     // MARK: Sample server responses
@@ -76,6 +86,8 @@ enum PreviewMode {
           {"id":"g4","title":"כימיה · כיתה י׳","subject":"כימיה","teacher":"דנה","mates":["שיר"],"weekly":1,
            "upcoming":[{"id":"l4","groupId":"g4","scheduledAt":"\(iso(6 * 86400))","durationMin":60,"extra":false}],
            "last":null,"homework":[],"pastCount":0,"myQuestions":0}],
+         "badge":{"title":{"emoji":"🚀","label":"חוקר מכניקה","rarity":"rare"},"avatar":"🦊","frame":"frame_violet"},
+         "points":{"level":"להבה","balance":340,"lifetime":560,"nextLevelAt":500,"missionsOpen":2},
          "consumption":{"period":"2026-11","consumedLugis":7.5,"capLugis":12,"pctUsed":62,"uncapped":false,"creditLugis":1},
          "family":{"hasParent":\(parent)},
          "dailyChallenge":{"doneToday":false,"streak":6},

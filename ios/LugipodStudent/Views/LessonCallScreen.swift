@@ -8,6 +8,15 @@ struct LessonCallScreen: View {
     let path: String
     @EnvironmentObject private var call: CallManager
     @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var celebration: CelebrationCenter
+    /// Set when the lesson is over for this student (they left, or the teacher ended it): the app asks how it was.
+    @State private var left: (leftEarly: Bool, teacherName: String?)?
+
+    /// `/meeting/lesson/<id>` → ("lesson", id)
+    private var meeting: (kind: String, ref: String)? {
+        let parts = path.split(separator: "/").map(String.init)
+        return parts.count >= 3 && parts[0] == "meeting" ? (parts[1], parts[2]) : nil
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -32,6 +41,14 @@ struct LessonCallScreen: View {
                 }
             }
         }
+        .overlay {
+            if let left, let meeting {
+                PostLessonFlow(kind: meeting.kind, ref: meeting.ref, leftEarly: left.leftEarly, teacherName: left.teacherName) { close() }
+                    .transition(.opacity)
+            }
+        }
+        .overlay { CelebrationHost(center: celebration) }
+        .animation(.easeOut(duration: 0.25), value: left == nil)
         .preferredColorScheme(.dark)
         .onDisappear { call.stop() }
     }
@@ -41,6 +58,7 @@ struct LessonCallScreen: View {
             switch message {
             case .startCall(let kind, let ref): Task { await call.start(kind: kind, ref: ref) }
             case .endCall: call.stop()
+            case .lessonLeft(let early, let teacher): call.stop(); left = (early, teacher)
             case .closeRoom: close()
             }
         }
@@ -109,9 +127,9 @@ struct CallVideoPanel: View {
                             }
                         }
                         .frame(height: 64)
-                        .padding(.bottom, 44)
+                        .padding(.bottom, 62)
                     } else {
-                        Color.clear.frame(height: 44)
+                        Color.clear.frame(height: 62)
                     }
                 }
                 .padding(.horizontal, 8).padding(.top, 38)
