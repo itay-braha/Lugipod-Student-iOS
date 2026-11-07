@@ -1,9 +1,26 @@
 import Daily
 import SwiftUI
 
-/// The lesson, natively: the teacher's shared screen and everyone's faces are drawn by the app at the top (on the left when the phone or
-/// iPad is held sideways), and the lesson's website page runs below as the control surface (timer, files, leave, feedback). The app's
-/// native client is the student's ONLY participant in the room; the page does not join the video call.
+/// Which way the app may rotate. The lesson is always held sideways (the teacher's shared screen is landscape); everything else stays upright on an
+/// iPhone and free on an iPad.
+enum OrientationLock {
+    static var mask: UIInterfaceOrientationMask = UIDevice.current.userInterfaceIdiom == .pad ? .all : .portrait
+
+    @MainActor static func landscape() { set(.landscape) }
+
+    @MainActor static func restore() { set(UIDevice.current.userInterfaceIdiom == .pad ? .all : .portrait) }
+
+    @MainActor private static func set(_ m: UIInterfaceOrientationMask) {
+        mask = m
+        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else { return }
+        scene.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: m)) { _ in }
+    }
+}
+
+/// The lesson, natively and full screen, held sideways: the teacher's shared screen and everyone's faces fill the display, with the mic, the
+/// camera and the way out on top of it. The lesson's website page (timer, files, leave, feedback) stays loaded and slides in from the side
+/// when asked for. The app's native client is the student's ONLY participant in the room; the page does not join the video call.
 struct LessonCallScreen: View {
     let path: String
     @EnvironmentObject private var call: CallManager
@@ -11,6 +28,7 @@ struct LessonCallScreen: View {
     @EnvironmentObject private var celebration: CelebrationCenter
     /// Set when the lesson is over for this student (they left, or the teacher ended it): the app asks how it was.
     @State private var left: (leftEarly: Bool, teacherName: String?)?
+    @State private var showPanel = false
 
     /// `/meeting/lesson/<id>` → ("lesson", id)
     private var meeting: (kind: String, ref: String)? {
@@ -20,25 +38,35 @@ struct LessonCallScreen: View {
 
     var body: some View {
         GeometryReader { geo in
-            let wide = geo.size.width > geo.size.height
-            let top = geo.safeAreaInsets.top
             ZStack {
                 Color(hex: 0x0B1020).ignoresSafeArea()
-                if wide {
-                    HStack(spacing: 0) {
-                        controls
-                        CallVideoPanel(call: call, onClose: close)
-                            .frame(width: geo.size.width * 0.5)
-                            .padding(.top, top)
-                    }
-                } else {
+                CallVideoPanel(call: call, onClose: close, onDetails: { withAnimation(.easeOut(duration: 0.25)) { showPanel.toggle() } }, insets: geo.safeAreaInsets)
+                    .ignoresSafeArea()
+                // The page is ALWAYS loaded (it keeps the lesson's clock, presence and the files), only slid out of view.
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
                     VStack(spacing: 0) {
-                        CallVideoPanel(call: call, onClose: close)
-                            .frame(height: min(geo.size.height * 0.42, 520) + top)
-                            .padding(.top, top)
+                        HStack {
+                            Text("פרטי השיעור").font(.heebo(15, 900)).foregroundStyle(.white)
+                            Spacer()
+                            Button { withAnimation(.easeOut(duration: 0.25)) { showPanel = false } } label: {
+                                Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+                                    .frame(width: 32, height: 32).background(Color.white.opacity(0.16), in: Circle())
+                            }
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(Color(hex: 0x0B1020))
                         controls
                     }
+                    .environment(\.layoutDirection, .rightToLeft)
+                    .frame(width: min(430, max(300, geo.size.width * 0.5)))
+                    .padding(.top, geo.safeAreaInsets.top).padding(.trailing, geo.safeAreaInsets.trailing)
+                    .background(Color(hex: 0x0B1020))
+                    .offset(x: showPanel ? 0 : min(430, max(300, geo.size.width * 0.5)) + geo.safeAreaInsets.trailing + 20)
+                    .shadow(color: .black.opacity(showPanel ? 0.35 : 0), radius: 14)
                 }
+                .environment(\.layoutDirection, .leftToRight)
+                .allowsHitTesting(showPanel)
             }
         }
         .overlay {
@@ -50,7 +78,10 @@ struct LessonCallScreen: View {
         .overlay { CelebrationHost(center: celebration) }
         .animation(.easeOut(duration: 0.25), value: left == nil)
         .preferredColorScheme(.dark)
-        .onDisappear { call.stop() }
+        .statusBarHidden(true)
+        .persistentSystemOverlays(.hidden)
+        .onAppear { OrientationLock.landscape() }
+        .onDisappear { call.stop(); OrientationLock.restore() }
     }
 
     private var controls: some View {
@@ -58,7 +89,7 @@ struct LessonCallScreen: View {
             switch message {
             case .startCall(let kind, let ref): Task { await call.start(kind: kind, ref: ref) }
             case .endCall: call.stop()
-            case .lessonLeft(let early, let teacher): call.stop(); left = (early, teacher)
+            case .lessonLeft(let early, let teacher): call.stop(); left = (early, teacher); showPanel = false
             case .closeRoom: close()
             }
         }
@@ -75,6 +106,8 @@ struct LessonCallScreen: View {
 struct CallVideoPanel: View {
     @ObservedObject var call: CallManager
     var onClose: () -> Void
+    var onDetails: (() -> Void)? = nil
+    var insets: EdgeInsets = EdgeInsets()
 
     var body: some View {
         ZStack {
@@ -84,15 +117,23 @@ struct CallVideoPanel: View {
                 HStack {
                     Button(action: onClose) {
                         Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
-                            .frame(width: 34, height: 34).background(Color.white.opacity(0.16), in: Circle())
+                            .frame(width: 38, height: 38).background(Color.white.opacity(0.18), in: Circle())
                     }
                     .accessibilityLabel("יציאה מהחדר")
                     Spacer()
+                    if let onDetails {
+                        Button(action: onDetails) {
+                            Label("פרטים", systemImage: "list.bullet.rectangle.portrait").font(.heebo(13, 800)).foregroundStyle(.white)
+                                .padding(.horizontal, 12).padding(.vertical, 9).background(Color.white.opacity(0.18), in: Capsule())
+                        }
+                        .accessibilityLabel("פרטי השיעור: זמן, קבצים ויציאה")
+                    }
                 }
                 Spacer()
                 controls
             }
-            .padding(10)
+            .padding(.top, max(10, insets.top)).padding(.bottom, max(10, insets.bottom))
+            .padding(.leading, max(14, insets.leading)).padding(.trailing, max(14, insets.trailing))
         }
         .clipped()
     }
@@ -109,30 +150,26 @@ struct CallVideoPanel: View {
         switch call.phase {
         case .live:
             if let stage {
-                VStack(spacing: 8) {
-                    CallTileView(tile: stage.tile, screen: stage.screen).frame(maxHeight: .infinity)
+                HStack(spacing: 8) {
+                    CallTileView(tile: stage.tile, screen: stage.screen).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // everyone else, as a column down the side (landscape has the height for it)
                     let others = call.tiles.filter { $0.id != stage.tile.id || stage.screen }
                     if !others.isEmpty || call.myCamera != nil {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(spacing: 8) {
                                 if let mine = call.myCamera {
                                     DailyVideoTile(track: mine, fill: true)
-                                        .frame(width: 92, height: 64)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.brand400, lineWidth: 2))
+                                        .frame(width: 128, height: 84)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.brand400, lineWidth: 2))
                                 }
-                                ForEach(others) { t in
-                                    CallTileView(tile: t, screen: false).frame(width: 92, height: 64)
-                                }
+                                ForEach(others) { t in CallTileView(tile: t, screen: false).frame(width: 128, height: 84) }
                             }
                         }
-                        .frame(height: 64)
-                        .padding(.bottom, 62)
-                    } else {
-                        Color.clear.frame(height: 62)
+                        .frame(width: 128)
                     }
                 }
-                .padding(.horizontal, 8).padding(.top, 38)
+                .padding(.horizontal, max(8, insets.leading)).padding(.top, max(54, insets.top + 44)).padding(.bottom, max(64, insets.bottom + 52))
             } else {
                 status(icon: "person.2.fill", text: "ממתינים שהמורה יצטרף…")
             }
@@ -166,7 +203,7 @@ struct CallVideoPanel: View {
 
     @ViewBuilder private var controls: some View {
         if call.phase == .live {
-            HStack(spacing: 12) {
+            HStack(spacing: 14) {
                 roundButton(on: call.micOn, onIcon: "mic.fill", offIcon: "mic.slash.fill", label: call.micOn ? "השתקה" : "ביטול השתקה") { call.setMic(!call.micOn) }
                 roundButton(on: call.cameraOn, onIcon: "video.fill", offIcon: "video.slash.fill", label: call.cameraOn ? "כיבוי מצלמה" : "הפעלת מצלמה") { call.setCamera(!call.cameraOn) }
             }
@@ -175,10 +212,11 @@ struct CallVideoPanel: View {
 
     private func roundButton(on: Bool, onIcon: String, offIcon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: on ? onIcon : offIcon).font(.system(size: 17, weight: .bold))
+            Image(systemName: on ? onIcon : offIcon).font(.system(size: 18, weight: .bold))
                 .foregroundStyle(on ? Theme.brand700 : .white)
-                .frame(width: 44, height: 44)
+                .frame(width: 48, height: 48)
                 .background(on ? Color.white : Theme.rose500, in: Circle())
+                .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
         }
         .accessibilityLabel(label)
     }

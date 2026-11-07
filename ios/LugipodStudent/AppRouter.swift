@@ -9,7 +9,7 @@ struct WebTarget: Identifiable, Equatable {
 /// Push taps and alert rows both go through `open(path:)` with the paths the server puts on each alert.
 @MainActor
 final class AppRouter: ObservableObject {
-    enum Tab: Hashable { case home, lugichat, practice, more }
+    enum Tab: Hashable { case home, lugichat, practice, friends, more }
 
     @Published var tab: Tab = .home
     @Published var web: WebTarget?

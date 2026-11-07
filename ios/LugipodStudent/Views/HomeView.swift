@@ -18,6 +18,8 @@ struct HomeView: View {
     @State private var askGroup: StudentHome.Group?
     @State private var showParent = false
     @State private var upgrade: Upgrade = .idle
+    @State private var showProfile = false
+    @State private var showRewards = false
 
     private let shownGroups = 3
 
@@ -55,6 +57,14 @@ struct HomeView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .environment(\.layoutDirection, .rightToLeft)
+        }
+        .sheet(isPresented: $showProfile) {
+            ProfileSheet { Task { await model.load() } }
+                .presentationDetents([.large]).presentationDragIndicator(.visible)
+                .environment(\.layoutDirection, .rightToLeft)
+        }
+        .sheet(isPresented: $showRewards) {
+            RewardsSheet().presentationDetents([.large]).presentationDragIndicator(.visible).environment(\.layoutDirection, .rightToLeft)
         }
         .sheet(isPresented: $showParent) {
             ParentSheet { Task { await model.load() } }
@@ -101,8 +111,15 @@ struct HomeView: View {
 
     private var topRow: some View {
         HStack(alignment: .center, spacing: 12) {
-            AvatarView(name: model.data?.student.name ?? "", avatar: model.data?.badge?.avatar, frame: model.data?.badge?.frame, size: 58)
-                .overlay(RoundedRectangle(cornerRadius: 58 * 0.32, style: .continuous).strokeBorder(.white.opacity(0.9), lineWidth: 2.5))
+            Button { showProfile = true } label: {
+                AvatarView(name: model.data?.student.name ?? "", avatar: model.data?.badge?.avatar, frame: model.data?.badge?.frame, size: 58)
+                    .overlay(RoundedRectangle(cornerRadius: 58 * 0.32, style: .continuous).strokeBorder(.white.opacity(0.9), lineWidth: 2.5))
+                    .overlay(alignment: .bottomLeading) {
+                        Image(systemName: "chevron.down.circle.fill").font(.system(size: 17)).foregroundStyle(.white, Theme.orange500).offset(x: -5, y: 5)
+                    }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("הפרופיל שלי: תארים, רצף ונקודות")
             VStack(alignment: .leading, spacing: 5) {
                 Text(firstName.isEmpty ? "שלום" : "שלום, \(firstName)").font(.heebo(23, 900)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.8)
                 HStack(spacing: 6) {
@@ -143,14 +160,18 @@ struct HomeView: View {
                 CoinCounter(value: c?.consumedLugis ?? 0, capLugis: c?.uncapped == false ? c?.capLugis : nil)
                 Spacer(minLength: 8)
                 if let streak = model.data?.dailyChallenge.streak, streak > 0 {
-                    VStack(spacing: 0) {
-                        Text("🔥").font(.system(size: 22))
-                        Text("\(streak)").font(.heebo(20, 900)).foregroundStyle(.white)
-                        Text("ימים").font(.heebo(11, 700)).foregroundStyle(.white.opacity(0.85))
+                    Button { showRewards = true } label: {
+                        VStack(spacing: 0) {
+                            Text("🔥").font(.system(size: 22))
+                            Text("\(streak)").font(.heebo(20, 900)).foregroundStyle(.white)
+                            Text("עוד \(model.data?.dailyChallenge.toGift ?? 10) ללוגי 🪙").font(.heebo(10, 800)).foregroundStyle(.white.opacity(0.95)).lineLimit(1).minimumScaleFactor(0.7)
+                        }
+                        .frame(width: 74, height: 76)
+                        .background(Theme.cta, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .shadow(color: Theme.orange700.opacity(0.4), radius: 8, y: 4)
                     }
-                    .frame(width: 64, height: 76)
-                    .background(Theme.cta, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .shadow(color: Theme.orange700.opacity(0.4), radius: 8, y: 4)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("רצף של \(streak) ימים. אפשר ללמוד איך מרוויחים")
                 }
             }
             if let c, c.uncapped == false, let cap = c.capLugis, cap > 0 {
@@ -218,14 +239,14 @@ struct HomeView: View {
             } label: {
                 HStack(spacing: 10) {
                     Text(a.emoji ?? "🔔").font(.system(size: 22))
-                    Text(a.title).font(.heebo(15, 800)).foregroundStyle(.white).lineLimit(1)
+                    Text(a.title).font(.heebo(15, 800)).foregroundStyle(Theme.brand800).lineLimit(1)
                     Spacer(minLength: 6)
-                    Image(systemName: "chevron.left").font(.system(size: 12, weight: .bold)).foregroundStyle(.white.opacity(0.8))
+                    Image(systemName: "chevron.left").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.brand500)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 13)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.indigoButton, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .shadow(color: Theme.brand700.opacity(0.35), radius: 8, y: 4)
+                .background(Theme.brand50, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.brand200, lineWidth: 1.5))
             }
             .buttonStyle(.plain)
         }
@@ -271,10 +292,6 @@ struct HomeView: View {
                     }
                     .buttonStyle(SecondaryButtonStyle())
                 }
-                Button { path.append(.pastLessons) } label: {
-                    HStack(spacing: 6) { Image(systemName: "clock.arrow.circlepath"); Text("כל השיעורים הקודמים") }
-                }
-                .font(.heebo(15, 800)).foregroundStyle(Theme.brand700).padding(.top, 2)
             }
         }
     }

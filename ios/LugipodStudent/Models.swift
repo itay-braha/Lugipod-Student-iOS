@@ -81,7 +81,7 @@ struct StudentHome: Decodable, Equatable {
         let missionsOpen: Int
     }
     struct Family: Decodable, Equatable { let hasParent: Bool }
-    struct Daily: Decodable, Equatable { let doneToday: Bool; let streak: Int }
+    struct Daily: Decodable, Equatable { let doneToday: Bool; let streak: Int; let highest: Int?; let toGift: Int? }
 
     let student: Student
     let groups: [Group]
@@ -103,6 +103,7 @@ struct GroupDetail: Decodable, Equatable {
         let topics: String?
         let homeworkText: String?
         let attended: Bool?
+        let files: [FileRef]?
     }
     struct Upcoming: Decodable, Identifiable, Equatable {
         let id: String
@@ -249,3 +250,74 @@ struct ActiveRebook: Decodable, Equatable {
 }
 
 struct ActiveRebookResponse: Decodable { let active: ActiveRebook? }
+
+/// A teacher's summary file (a PDF) attached to a lesson.
+struct FileRef: Decodable, Identifiable, Equatable {
+    let id: String
+    let name: String
+    let mime: String
+    let size: Int
+}
+
+/// GET /api/native/student/history: every lesson the student took part in, including groups they have left.
+struct HistoryResponse: Decodable {
+    struct Lesson: Decodable, Identifiable, Equatable {
+        let id: String
+        let groupId: String
+        let groupTitle: String
+        let teacher: String?
+        let stillInGroup: Bool
+        let scheduledAt: Date
+        let durationMin: Int
+        let topics: String?
+        let homeworkText: String?
+        let attended: Bool?
+        let files: [FileRef]
+    }
+    let lessons: [Lesson]
+}
+
+/// A student as other students may see them (friends, group-mates, the leaderboard).
+struct Peer: Decodable, Identifiable, Equatable {
+    let id: String
+    let name: String
+    let avatar: String?
+    let frame: String?
+    let title: StudentHome.Badge.Title?
+    let streak: Int
+    let highestStreak: Int
+    let points: Int
+    var isFriend: Bool? = nil
+    var requested: Bool? = nil
+}
+
+/// GET /api/native/student/friends
+struct FriendsResponse: Decodable {
+    struct Board: Decodable, Identifiable, Equatable { let id: String; let title: String; let members: [Peer] }
+    struct Incoming: Decodable, Identifiable, Equatable { let requestId: String; let from: Peer; var id: String { requestId } }
+    struct Invite: Decodable, Equatable { let link: String; let text: String }
+    let me: Peer?
+    let friends: [Peer]
+    let groups: [Board]
+    let incoming: [Incoming]
+    let outgoingCount: Int
+    let invite: Invite?
+}
+
+/// GET /api/native/student/profile
+struct ProfileResponse: Decodable {
+    struct Points: Decodable, Equatable { let level: String; let balance: Int; let lifetime: Int; let nextLevelAt: Int? }
+    struct Item: Decodable, Identifiable, Equatable {
+        let id: String
+        let kind: String
+        let label: String
+        let emoji: String
+        let rarity: String
+        let unlocked: Bool
+        let equipped: Bool
+        let hint: String
+    }
+    let me: Peer
+    let points: Points?
+    let items: [Item]
+}

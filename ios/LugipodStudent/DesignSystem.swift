@@ -78,7 +78,7 @@ enum Theme {
 
     // Gradients
     /// The big indigo block at the top of the app.
-    static let hero = LinearGradient(colors: [Color(hex: 0x1E1B6E), brand800, brand600, Color(hex: 0x7C3AED)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    static let hero = LinearGradient(colors: [Color(hex: 0x6366F1), Color(hex: 0x7C6CF5), Color(hex: 0xA78BFA)], startPoint: .topLeading, endPoint: .bottomTrailing)
     static let cta = LinearGradient(colors: [orange400, orange600], startPoint: .top, endPoint: .bottom)
     static let indigoButton = LinearGradient(colors: [brand500, brand700], startPoint: .top, endPoint: .bottom)
     static let coin = LinearGradient(colors: [gold300, gold500, Color(hex: 0xD97706)], startPoint: .topLeading, endPoint: .bottomTrailing)

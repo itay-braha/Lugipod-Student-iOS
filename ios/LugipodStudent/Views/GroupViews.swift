@@ -154,7 +154,7 @@ struct GroupDetailView: View {
 
     @ViewBuilder private var past: some View {
         VStack(spacing: 8) {
-            SectionTitle(text: "שיעורים קודמים", count: model.detail?.past.count)
+            SectionTitle(text: "לשיעורים קודמים", count: model.detail?.past.count)
             if let past = model.detail?.past, !past.isEmpty {
                 ForEach(past) { PastLessonRow(lesson: $0, groupTitle: nil) }
             } else if model.detail != nil {
@@ -187,6 +187,7 @@ struct PastLessonRow: View {
             if let hw = lesson.homeworkText, !hw.isEmpty {
                 Label(hw, systemImage: "pencil.and.list.clipboard").font(.heebo(13, 600)).foregroundStyle(Theme.amber800)
             }
+            FileButtons(files: lesson.files ?? [])
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card(padding: 14, radius: 16)
@@ -263,7 +264,7 @@ struct PastLessonsView: View {
                 ForEach(model.items) { PastLessonRow(lesson: $0.lesson, groupTitle: $0.groupTitle) }
             }
         }
-        .navigationTitle("שיעורים קודמים")
+        .navigationTitle("לשיעורים קודמים")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .task { await model.load(home.data?.groups ?? []) }

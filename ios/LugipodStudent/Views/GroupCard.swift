@@ -150,7 +150,7 @@ struct GroupCard: View {
             }
             .buttonStyle(SoftButtonStyle(fg: .white, bg: Theme.orange500))
             HStack(spacing: 4) {
-                Text(group.pastCount > 0 ? "שיעורים קודמים (\(group.pastCount))" : "פרטי הקבוצה")
+                Text(group.pastCount > 0 ? "לשיעורים קודמים (\(group.pastCount))" : "פרטי הקבוצה")
                 Image(systemName: "chevron.left").font(.system(size: 11, weight: .bold))
             }
             .font(.heebo(14, 800)).foregroundStyle(tint.fg)

@@ -108,6 +108,33 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(model.phase, .finished)
     }
 
+    func testFriendsProfileHistoryDecode() throws {
+        let f = try API.decoder.decode(FriendsResponse.self, from: PreviewMode.response(method: "GET", path: "/api/native/student/friends"))
+        XCTAssertEqual(f.friends.count, 2)
+        XCTAssertEqual(f.groups.first?.members.count, 3)
+        XCTAssertEqual(f.groups.first?.members.first?.isFriend, true)
+        XCTAssertEqual(f.incoming.first?.from.name, "איתן")
+        XCTAssertEqual(f.me?.highestStreak, 14)
+        let p = try API.decoder.decode(ProfileResponse.self, from: PreviewMode.response(method: "GET", path: "/api/native/student/profile"))
+        XCTAssertEqual(p.items.filter(\.unlocked).count, 4)
+        XCTAssertEqual(p.items.first { !$0.unlocked }?.hint, "עוד 360 נקודות")
+        let h = try API.decoder.decode(HistoryResponse.self, from: PreviewMode.response(method: "GET", path: "/api/native/student/history"))
+        XCTAssertEqual(h.lessons.count, 2)
+        XCTAssertEqual(h.lessons[0].files.first?.name, "סיכום-שיעור-6.pdf")
+        XCTAssertFalse(h.lessons[1].stillInGroup)
+        let detail = try API.decoder.decode(GroupDetail.self, from: PreviewMode.response(method: "GET", path: "/api/native/student/group/g1"))
+        XCTAssertEqual(detail.past.first?.files?.count, 1)
+        let home = try API.decoder.decode(StudentHome.self, from: PreviewMode.response(method: "GET", path: "/api/native/student/home"))
+        XCTAssertEqual(home.dailyChallenge.toGift, 4)
+    }
+
+    func testFoxPosesRotate() {
+        let center = CelebrationCenter()
+        var seen = Set<LugiPose>()
+        for _ in 0..<5 { center.fox("x"); if let p = center.fox?.pose { seen.insert(p) } }
+        XCTAssertGreaterThanOrEqual(seen.count, 4)          // the same fox does not greet every right answer
+    }
+
     func testHebrewMonthLabel() {
         XCTAssertEqual(HebrewDate.monthYear("2026-11"), "נובמבר 2026")
         XCTAssertEqual(HebrewDate.monthYear(nil), "")

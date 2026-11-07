@@ -87,6 +87,7 @@ struct AppTabBar: View {
         Item(tab: .home, title: "הקבוצות", icon: "house.fill", color: Theme.brand600),
         Item(tab: .lugichat, title: "לוגיצ׳אט", icon: "sparkles", color: Theme.violet500),
         Item(tab: .practice, title: "תרגול", icon: "flame.fill", color: Theme.orange500),
+        Item(tab: .friends, title: "חברים", icon: "person.2.fill", color: Color(hex: 0xEC4899)),
         Item(tab: .more, title: "עוד", icon: "square.grid.2x2.fill", color: Theme.emerald600),
     ]
 
@@ -124,6 +125,7 @@ struct MainTabView: View {
     @StateObject private var home = HomeModel()
     @StateObject private var daily = DailyModel()
     @StateObject private var chat = LugichatModel()
+    @StateObject private var friends = FriendsModel()
     @EnvironmentObject private var celebration: CelebrationCenter
     @Environment(\.scenePhase) private var scenePhase
 
@@ -135,6 +137,7 @@ struct MainTabView: View {
                 case .home: HomeView()
                 case .lugichat: LugichatView()
                 case .practice: DailyChallengeView()
+                case .friends: FriendsView()
                 case .more: MoreView()
                 }
             }
@@ -147,6 +150,7 @@ struct MainTabView: View {
         .environmentObject(home)
         .environmentObject(daily)
         .environmentObject(chat)
+        .environmentObject(friends)
         .overlay { CelebrationHost(center: celebration) }
         // Lugis were spent (a lesson was charged): a few coins float up, so spending is felt, never silent.
         .onChange(of: home.data?.consumption.consumedLugis) { old, new in

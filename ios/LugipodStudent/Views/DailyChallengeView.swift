@@ -4,14 +4,19 @@ struct DailyChallengeView: View {
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var model: DailyModel
     @EnvironmentObject private var celebration: CelebrationCenter
+    @State private var showRewards = false
 
     var body: some View {
         VStack(spacing: 0) {
             header
+            rewardsStrip
             content
         }
         .background(ScreenBackground())
         .task { await model.loadIfNeeded() }
+        .sheet(isPresented: $showRewards) {
+            RewardsSheet().presentationDetents([.large]).presentationDragIndicator(.visible).environment(\.layoutDirection, .rightToLeft)
+        }
     }
 
     private var header: some View {
@@ -41,6 +46,30 @@ struct DailyChallengeView: View {
             .shadow(color: Theme.orange700.opacity(0.35), radius: 14, y: 7)
             .ignoresSafeArea(edges: .top)
         }
+    }
+
+    /// What the challenge earns, always in view: every 10 days in a row is a gift lugi (one lugi less to pay, valid for a year).
+    private var rewardsStrip: some View {
+        let toGift = 10 - (model.streak % 10)
+        return Button { showRewards = true } label: {
+            HStack(spacing: 10) {
+                FoxCoin(size: 34)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(toGift == 10 && model.streak > 0 ? "קיבלתם לוגי מתנה! 🎉" : "עוד \(toGift) ימים ברצף = לוגי במתנה")
+                        .font(.heebo(14, 900)).foregroundStyle(Theme.gold700)
+                    Text("שיעורי בית מזכים בנקודות לתארים · לחצו לפרטים").font(.heebo(11, 700)).foregroundStyle(Theme.slate600)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: "questionmark.circle.fill").foregroundStyle(Theme.orange500)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 9)
+            .background(Theme.amber100, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.amber400.opacity(0.6), lineWidth: 1))
+            .frame(maxWidth: 720)
+            .padding(.horizontal, 16).padding(.top, 10)
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
     }
 
     private var subtitle: String {
@@ -108,7 +137,7 @@ struct DailyChallengeView: View {
                     let milestone = model.streak > 0 && model.streak % 10 == 0 && model.correctCount == 1
                     celebration.fox(milestone ? "רצף של \(model.streak) ימים! 🎉" : "כל הכבוד! 🔥",
                                     subtitle: milestone ? "זכית בלוגי מתנה 🪙" : (model.correctCount == 1 ? "שמרת על הרצף · +5 נקודות" : nil),
-                                    pose: milestone ? .cheer : .praise, big: milestone)
+                                    pose: nil, big: milestone)
                 }
             }
         }

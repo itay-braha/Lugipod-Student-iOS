@@ -41,7 +41,7 @@ struct LugichatView: View {
     private var topBar: some View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
-                Image("Lugi-peek").resizable().scaledToFit().frame(width: 36, height: 36).accessibilityHidden(true)
+                Image("Lugi-walk").resizable().scaledToFit().frame(width: 38, height: 38).accessibilityHidden(true)
                 Text("לוגיצ׳אט").font(.heebo(22, 900)).foregroundStyle(.white)
             }
             Spacer()
@@ -70,7 +70,7 @@ struct LugichatView: View {
         VStack(spacing: 18) {
             Spacer(minLength: 20)
             // The fox is who they are asking.
-            Lugi(pose: .study, height: 150)
+            Lugi(pose: [.study, .wave, .sit, .wink][model.greetingSeed % 4], height: 150)
             Text(model.greeting(name: home.data?.student.name ?? ""))
                 .font(.heebo(30, 800)).foregroundStyle(Theme.ink).multilineTextAlignment(.center)
             Text("כתבו שאלה, או צלמו תרגיל. אני מדריך צעד אחר צעד.")

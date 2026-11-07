@@ -88,11 +88,15 @@ final class CelebrationCenter: ObservableObject {
     }
 
     @Published private(set) var fox: Fox?
+    private var poseTurn = Int.random(in: 0..<10)
     @Published private(set) var coins: Coins?
 
     /// The fox jumps in with a short cheer. Gone by itself after about two seconds, never in the way.
-    func fox(_ title: String, subtitle: String? = nil, pose: LugiPose = .praise, big: Bool = false) {
-        let item = Fox(title: title, subtitle: subtitle, pose: pose, big: big)
+    /// Pass `pose: nil` and a different one is picked each time, so the same fox does not greet every right answer.
+    func fox(_ title: String, subtitle: String? = nil, pose: LugiPose? = nil, big: Bool = false) {
+        let pool: [LugiPose] = big ? [.cheer, .proud, .praise] : [.praise, .wink, .proud, .cheer, .walk]
+        poseTurn += 1
+        let item = Fox(title: title, subtitle: subtitle, pose: pose ?? pool[poseTurn % pool.count], big: big)
         fox = item
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         #if DEBUG

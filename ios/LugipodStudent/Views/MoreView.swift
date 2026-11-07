@@ -7,6 +7,8 @@ struct MoreView: View {
     @EnvironmentObject private var home: HomeModel
     @State private var confirmSignOut = false
     @State private var showAvailability = false
+    @State private var showHistory = false
+    @State private var showProfile = false
 
     var body: some View {
         ScrollView {
@@ -17,6 +19,8 @@ struct MoreView: View {
                         row("bell.fill", "התראות", color: Theme.brand600, badge: inbox.unread) { router.showAlerts = true }
                         divider
                         row("calendar.badge.clock", "השעות שלי", detail: "מתי נוח לכם ללמוד", color: Theme.emerald600) { showAvailability = true }
+                        divider
+                        row("clock.arrow.circlepath", "השיעורים שלי", detail: "כל השיעורים והסיכומים, גם מקבוצות קודמות", color: Theme.brand500) { showHistory = true }
                         divider
                         row("person.3.fill", "הקבוצות והשיעורים", detail: "כל הפרטים באתר", color: Theme.orange500) { router.open(path: "/dashboard") }
                         divider
@@ -48,7 +52,11 @@ struct MoreView: View {
         .ignoresSafeArea(edges: .top)
         .background(ScreenBackground())
         #if DEBUG
-        .onAppear { if PreviewMode.screen == "availability" { showAvailability = true } }
+        .onAppear {
+            if PreviewMode.screen == "availability" { showAvailability = true }
+            if PreviewMode.screen == "history" { showHistory = true }
+            if PreviewMode.screen == "profile" { showProfile = true }
+        }
         #endif
         .confirmationDialog("להתנתק מהחשבון?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("התנתקות", role: .destructive) { Task { await auth.signOut() } }
@@ -57,12 +65,21 @@ struct MoreView: View {
         .fullScreenCover(isPresented: $showAvailability) {
             AvailabilityView().environment(\.layoutDirection, .rightToLeft)
         }
+        .fullScreenCover(isPresented: $showHistory) {
+            HistoryView().environment(\.layoutDirection, .rightToLeft)
+        }
+        .sheet(isPresented: $showProfile) {
+            ProfileSheet { Task { await home.load() } }.presentationDetents([.large]).presentationDragIndicator(.visible).environment(\.layoutDirection, .rightToLeft)
+        }
     }
 
     private var header: some View {
         HStack(spacing: 14) {
-            AvatarView(name: home.data?.student.name ?? "", avatar: home.data?.badge?.avatar, frame: home.data?.badge?.frame, size: 60)
-                .overlay(RoundedRectangle(cornerRadius: 60 * 0.32, style: .continuous).strokeBorder(.white.opacity(0.9), lineWidth: 2.5))
+            Button { showProfile = true } label: {
+                AvatarView(name: home.data?.student.name ?? "", avatar: home.data?.badge?.avatar, frame: home.data?.badge?.frame, size: 60)
+                    .overlay(RoundedRectangle(cornerRadius: 60 * 0.32, style: .continuous).strokeBorder(.white.opacity(0.9), lineWidth: 2.5))
+            }
+            .buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 5) {
                 Text("עוד").font(.heebo(13, 800)).foregroundStyle(Theme.gold300)
                 Text(home.data?.student.name ?? "").font(.heebo(24, 900)).foregroundStyle(.white).lineLimit(1)
