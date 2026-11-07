@@ -136,7 +136,8 @@ struct DailyChallengeView: View {
             .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(.plain)
-        .disabled(answered || model.checking)
+        // Not `.disabled`: that would grey out the green correct answer too. The model ignores taps once an answer is in.
+        .allowsHitTesting(!answered && !model.checking)
     }
 
     private func feedback(_ r: DailyAnswer) -> some View {
