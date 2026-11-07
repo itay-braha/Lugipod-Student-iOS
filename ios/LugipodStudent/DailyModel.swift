@@ -63,12 +63,7 @@ final class DailyModel: ObservableObject {
         if payload == nil { phase = .loading }
         do {
             let raw = try await API.request("GET", "/api/native/student/daily")
-            let p = try API.decoder.decode(DailyPayload.self, from: raw)
-            payload = p
-            streak = p.streak
-            loadedAt = Date()
-            index = 0; correctCount = 0; picked = nil; result = nil
-            if p.questions.isEmpty { phase = .empty } else { phase = .ready; startQuestion() }
+            apply(try API.decoder.decode(DailyPayload.self, from: raw))
         } catch APIError.notSignedIn {
             await AuthStore.shared.signOut()
         } catch APIError.notAStudent {
@@ -76,6 +71,15 @@ final class DailyModel: ObservableObject {
         } catch {
             if payload == nil { phase = .failed("לא הצלחנו לטעון את האתגר. בדקו חיבור ונסו שוב.") }
         }
+    }
+
+    /// Starts a round from a payload (what `load` does after the server answers; also how the tests feed it).
+    func apply(_ p: DailyPayload) {
+        payload = p
+        streak = p.streak
+        loadedAt = Date()
+        index = 0; correctCount = 0; picked = nil; result = nil
+        if p.questions.isEmpty { phase = .empty } else { phase = .ready; startQuestion() }
     }
 
     private func startQuestion() {

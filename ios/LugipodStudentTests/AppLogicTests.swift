@@ -92,9 +92,9 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(daily.subject?.name, "פיזיקה")
     }
 
-    func testDailyModelAnswersInstantly() async throws {
+    func testDailyModelAnswersInstantly() throws {
         let model = DailyModel()
-        await model.load()
+        model.apply(try API.decoder.decode(DailyPayload.self, from: PreviewMode.response(method: "GET", path: "/api/native/student/daily")))
         XCTAssertEqual(model.phase, .ready)
         let q = try XCTUnwrap(model.question)
         model.pick(q.answerIndex)                                // no await: the result is there at once
