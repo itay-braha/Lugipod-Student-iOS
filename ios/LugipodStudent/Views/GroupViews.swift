@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 extension HebrewDate {
@@ -41,9 +42,7 @@ struct GroupDetailView: View {
     @EnvironmentObject private var home: HomeModel
     @EnvironmentObject private var router: AppRouter
     @StateObject private var model = GroupDetailModel()
-    @State private var draft = ""
-    @State private var sending = false
-    @State private var sendError: String?
+    @State private var asking = false
 
     private var group: StudentHome.Group? { home.data?.groups.first { $0.id == groupId } }
 
@@ -125,28 +124,16 @@ struct GroupDetailView: View {
     private func questions(_ group: StudentHome.Group, tint: SubjectTint) -> some View {
         VStack(spacing: 8) {
             SectionTitle(text: "שאלות למורה לפני השיעור", count: model.detail?.questions.count)
-            VStack(spacing: 10) {
-                HStack(alignment: .bottom, spacing: 8) {
-                    TextField("מה תרצו שנעבור? כתבו שאלה…", text: $draft, axis: .vertical)
-                        .lineLimit(1...4).font(.heebo(16, 500))
-                        .padding(.horizontal, 14).padding(.vertical, 11)
-                        .background(Theme.slate50, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    Button {
-                        Task { await send(group) }
-                    } label: {
-                        Image(systemName: sending ? "ellipsis" : "paperplane.fill").font(.system(size: 16, weight: .bold)).foregroundStyle(.white)
-                            .frame(width: 44, height: 44).background(canSend ? tint.accent : Theme.slate300, in: Circle())
-                    }
-                    .disabled(!canSend)
-                    .accessibilityLabel("שליחה למורה")
-                }
-                if let sendError { Text(sendError).font(.heebo(13, 600)).foregroundStyle(Theme.rose600) }
+            VStack(spacing: 12) {
+                Button { asking = true } label: { Label("שאלה חדשה (אפשר גם תמונה)", systemImage: "camera.fill") }
+                    .buttonStyle(SoftButtonStyle(fg: .white, bg: tint.accent))
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 ForEach(model.detail?.questions ?? []) { q in
                     HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "text.bubble.fill").foregroundStyle(tint.accent)
+                        Image(systemName: q.hasImage ? "photo.fill" : "text.bubble.fill").foregroundStyle(tint.accent)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(q.text).font(.heebo(14, 600)).foregroundStyle(Theme.ink)
-                            Text(HebrewDate.relative(q.createdAt)).font(.heebo(11, 500)).foregroundStyle(Theme.slate400)
+                            Text(q.text.isEmpty ? "שאלה עם תמונה" : q.text).font(.heebo(14, 600)).foregroundStyle(Theme.ink)
+                            Text("נשלחה למורה · \(HebrewDate.relative(q.createdAt))").font(.heebo(11, 500)).foregroundStyle(Theme.slate400)
                         }
                         Spacer(minLength: 0)
                     }
@@ -155,21 +142,13 @@ struct GroupDetailView: View {
             }
             .card(padding: 14, radius: 18)
         }
-    }
-
-    private var canSend: Bool { !sending && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-
-    private func send(_ group: StudentHome.Group) async {
-        sending = true; sendError = nil
-        defer { sending = false }
-        do {
-            _ = try await API.request("POST", "/api/native/student/lesson-question",
-                                      json: ["groupId": group.id, "lessonId": group.nextLesson()?.id ?? NSNull(), "text": draft])
-            draft = ""
-            await model.load(groupId)
-            await home.load()
-        } catch {
-            sendError = "לא הצלחנו לשלוח. נסו שוב."
+        .sheet(isPresented: $asking) {
+            AskTeacherSheet(group: group) {
+                Task { await model.load(groupId); await home.load() }
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .environment(\.layoutDirection, .rightToLeft)
         }
     }
 
@@ -293,45 +272,99 @@ struct PastLessonsView: View {
 
 // MARK: - Sheets
 
-/// A question for the teacher, before the lesson. Goes to the same place as the website's version.
+/// A question for the teacher, before the lesson: text and/or a photo (camera, gallery, or pasted from the clipboard). Goes to the same place
+/// as the website's version, where it is also solved for the teacher (and only the teacher).
 struct AskTeacherSheet: View {
     let group: StudentHome.Group
     var onSent: () -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
+    @State private var image: UIImage?
+    @State private var showCamera = false
+    @State private var pickerItem: PhotosPickerItem?
     @State private var sending = false
     @State private var error: String?
+    @State private var sent = false
     @FocusState private var focused: Bool
+
+    private var cameraAvailable: Bool { UIImagePickerController.isSourceTypeAvailable(.camera) }
+    private var canSend: Bool { !sending && (image != nil || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("שאלה ל\(group.teacher ?? "מורה")").font(.heebo(22, 800)).foregroundStyle(Theme.ink)
-            Text("המורה רואה את זה כשהוא מתכונן לשיעור הבא של \(group.title).").font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
-            TextField("מה תקוע? מה תרצו שנעבור?", text: $text, axis: .vertical)
-                .lineLimit(3...8).font(.heebo(17, 500)).focused($focused)
-                .padding(14)
-                .background(Theme.slate50, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            if let error { Text(error).font(.heebo(13, 600)).foregroundStyle(Theme.rose600) }
-            Button { Task { await send() } } label: {
-                HStack { if sending { ProgressView().tint(.white) }; Text("שליחה למורה") }
+            if sent {
+                VStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: 54)).foregroundStyle(Theme.emerald500)
+                    Text("נשלח ל\(group.teacher ?? "מורה") ✓").font(.heebo(22, 800)).foregroundStyle(Theme.ink)
+                    Text("המורה יראה את השאלה לפני השיעור, כבר עם פתרון מוכן.").font(.heebo(15, 500)).foregroundStyle(Theme.slate600).multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity).padding(.top, 40)
+                Spacer(minLength: 0)
+            } else {
+                Text("שאלה ל\(group.teacher ?? "מורה")").font(.heebo(22, 800)).foregroundStyle(Theme.ink)
+                Text("המורה רואה את זה כשהוא מתכונן לשיעור הבא של \(group.title).").font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
+                TextField("מה תקוע? מה תרצו שנעבור?", text: $text, axis: .vertical)
+                    .lineLimit(3...8).font(.heebo(17, 500)).focused($focused)
+                    .padding(14)
+                    .background(Theme.slate50, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                if let image {
+                    ZStack(alignment: .topLeading) {
+                        Image(uiImage: image).resizable().scaledToFill().frame(width: 120, height: 120)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        Button { self.image = nil } label: {
+                            Image(systemName: "xmark.circle.fill").font(.system(size: 24)).foregroundStyle(.white, Theme.slate700)
+                        }
+                        .offset(x: -8, y: -8)
+                        .accessibilityLabel("הסרת התמונה")
+                    }
+                }
+                HStack(spacing: 10) {
+                    if cameraAvailable {
+                        Button { showCamera = true } label: { Label("צילום", systemImage: "camera.fill") }.buttonStyle(SoftButtonStyle())
+                    }
+                    PhotosPicker(selection: $pickerItem, matching: .images) { Label("גלריה", systemImage: "photo.on.rectangle") }
+                        .font(.heebo(14, 700)).foregroundStyle(Theme.brand700)
+                        .padding(.horizontal, 14).padding(.vertical, 9).background(Theme.brand50, in: Capsule())
+                    // "Copy" a picture anywhere on the phone (a screenshot, a photo, a web page) and paste it here.
+                    if UIPasteboard.general.hasImages {
+                        Button { image = UIPasteboard.general.image } label: { Label("הדבקה", systemImage: "doc.on.clipboard") }.buttonStyle(SoftButtonStyle())
+                    }
+                }
+                if let error { Text(error).font(.heebo(13, 600)).foregroundStyle(Theme.rose600) }
+                Button { Task { await send() } } label: {
+                    HStack { if sending { ProgressView().tint(.white) }; Text("שליחה למורה") }
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(!canSend)
+                Spacer(minLength: 0)
             }
-            .buttonStyle(PrimaryButtonStyle())
-            .disabled(sending || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            Spacer(minLength: 0)
         }
         .padding(20)
+        .fullScreenCover(isPresented: $showCamera) { CameraPicker { image = $0 }.ignoresSafeArea() }
+        .onChange(of: pickerItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: data) { image = img }
+                pickerItem = nil
+            }
+        }
         .onAppear { focused = true }
     }
 
     private func send() async {
         sending = true; error = nil
         defer { sending = false }
+        var body: [String: Any] = ["groupId": group.id, "lessonId": group.nextLesson()?.id ?? NSNull(), "text": text]
+        if let image { body["imageBase64"] = LugichatModel.encode(image); body["mimeType"] = "image/jpeg" }
         do {
-            _ = try await API.request("POST", "/api/native/student/lesson-question",
-                                      json: ["groupId": group.id, "lessonId": group.nextLesson()?.id ?? NSNull(), "text": text])
+            _ = try await API.request("POST", "/api/native/student/lesson-question", json: body, timeout: 60)
             onSent()
+            sent = true
+            try? await Task.sleep(nanoseconds: 1_600_000_000)
             dismiss()
-        } catch { self.error = "לא הצלחנו לשלוח. נסו שוב." }
+        } catch APIError.server(_, let message) where !message.isEmpty {
+            error = message
+        } catch { self.error = "לא הצלחנו לשלוח. בדקו חיבור ונסו שוב." }
     }
 }
 

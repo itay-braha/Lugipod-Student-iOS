@@ -18,6 +18,9 @@ packages:
   Supabase:
     url: https://github.com/supabase/supabase-swift
     exactVersion: 2.55.3
+  Daily:
+    url: https://github.com/daily-co/daily-client-ios
+    exactVersion: 0.41.0
 
 targets:
   LugipodStudent:
@@ -40,6 +43,8 @@ targets:
     dependencies:
       - package: Supabase
         product: Supabase
+      - package: Daily
+        product: Daily
     entitlements:
       path: LugipodStudent/LugipodStudent.entitlements
       properties:
@@ -67,6 +72,8 @@ targets:
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+        # The lesson's voice keeps going with the screen locked or another app in front.
+        UIBackgroundModes: [audio]
         UIAppFonts: [Heebo.ttf]
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: צילום שאלה ללוגיצ׳אט, והצגת המצלמה שלך בשיעור.

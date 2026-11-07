@@ -96,6 +96,7 @@ struct GroupDetail: Decodable, Equatable {
     }
     struct Question: Decodable, Identifiable, Equatable {
         let id: String
+        let hasImage: Bool
         let lessonId: String?
         let text: String
         let createdAt: Date

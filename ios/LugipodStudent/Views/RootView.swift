@@ -3,8 +3,24 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var call: CallManager
 
     var body: some View {
+        #if DEBUG
+        if PreviewMode.screen == "call" {
+            // Screenshots only: the lesson screen with a sample room (no network, no video).
+            LessonCallScreen(path: "/meeting/lesson/preview")
+                .environment(\.layoutDirection, .rightToLeft)
+                .task { call.loadPreview() }
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
+
+    private var content: some View {
         ZStack {
             switch auth.state {
             case .loading: LoadingView()
@@ -14,8 +30,15 @@ struct RootView: View {
             }
         }
         .fullScreenCover(item: $router.web) { target in
-            WebScreen(path: target.path)
-                .environment(\.layoutDirection, .rightToLeft)
+            Group {
+                // The lesson room: native video on top, the lesson page below as the controls.
+                if target.path.hasPrefix("/meeting") {
+                    LessonCallScreen(path: target.path)
+                } else {
+                    WebScreen(path: target.path)
+                }
+            }
+            .environment(\.layoutDirection, .rightToLeft)
         }
         .task(id: auth.state) {
             #if DEBUG

@@ -1,18 +1,22 @@
 import SwiftUI
 import WebKit
 
-/// A Lugipod website page inside the app, for the screens that are not native yet (the lesson room, the daily challenge, the
-/// availability grid, ...). The user agent says "LugipodStudentApp" so the site can tell it is in the app.
+/// A Lugipod website page inside the app, for the screens that are not native yet (availability, the level test, billing, the lesson
+/// page's controls...). The user agent says "LugipodStudentApp" so the site can tell it is in the app; the lesson page then does NOT join
+/// the video call itself, because the app's native client does.
 struct WebShell: UIViewRepresentable {
     let request: URLRequest
+    /// Messages from the page (`webkit.messageHandlers.lugipod`). Only the lesson screen listens.
+    var onMessage: ((BridgeMessage) -> Void)?
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeCoordinator() -> Coordinator { Coordinator(onMessage: onMessage) }
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.applicationNameForUserAgent = "LugipodStudentApp/1"
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
+        config.userContentController.add(WeakHandler(context.coordinator), name: "lugipod")
         let web = WKWebView(frame: .zero, configuration: config)
         web.allowsBackForwardNavigationGestures = true
         web.uiDelegate = context.coordinator
@@ -21,10 +25,18 @@ struct WebShell: UIViewRepresentable {
         return web
     }
 
-    func updateUIView(_ web: WKWebView, context: Context) {}
+    func updateUIView(_ web: WKWebView, context: Context) { context.coordinator.onMessage = onMessage }
 
-    final class Coordinator: NSObject, WKUIDelegate {
-        // Camera/microphone prompts for pages inside the app (the lesson room): the site is ours, say yes.
+    final class Coordinator: NSObject, WKUIDelegate, WKScriptMessageHandler {
+        var onMessage: ((BridgeMessage) -> Void)?
+        init(onMessage: ((BridgeMessage) -> Void)?) { self.onMessage = onMessage }
+
+        func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard let msg = BridgeMessage(body: message.body) else { return }
+            DispatchQueue.main.async { self.onMessage?(msg) }
+        }
+
+        // Camera/microphone prompts for pages inside the app: the site is ours, say yes.
         func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin,
                      initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType,
                      decisionHandler: @escaping (WKPermissionDecision) -> Void) {
@@ -36,6 +48,15 @@ struct WebShell: UIViewRepresentable {
                      for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
             if navigationAction.targetFrame == nil { webView.load(navigationAction.request) }
             return nil
+        }
+    }
+
+    /// WKUserContentController retains its handlers; this breaks the cycle.
+    private final class WeakHandler: NSObject, WKScriptMessageHandler {
+        weak var target: WKScriptMessageHandler?
+        init(_ target: WKScriptMessageHandler) { self.target = target }
+        func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage) {
+            target?.userContentController(ucc, didReceive: message)
         }
     }
 }
@@ -65,6 +86,7 @@ enum WebLogin {
 struct WebScreen: View {
     let path: String
     var showsClose = true
+    var onMessage: ((BridgeMessage) -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var request: URLRequest?
     @State private var failed = false
@@ -73,7 +95,7 @@ struct WebScreen: View {
         ZStack(alignment: .topLeading) {
             Color(.systemBackground).ignoresSafeArea()
             if let request {
-                WebShell(request: request)
+                WebShell(request: request, onMessage: onMessage)
             } else if failed {
                 ContentUnavailableView {
                     Label("לא הצלחנו לפתוח את העמוד", systemImage: "wifi.exclamationmark")

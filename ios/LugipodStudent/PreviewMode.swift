@@ -2,7 +2,7 @@ import Foundation
 
 /// A development aid: `LUGIPOD_PREVIEW=<screen>` (an environment variable, set by CI through `simctl launch`) makes a DEBUG build
 /// skip sign-in and show a screen with sample data, so every screen can be screenshotted in the simulator without a server.
-/// Screens: login, login-code, login-email, home, home-parent, group, ask, lugichat, lugichat-thread, lugichat-limit, daily, daily-answered, more, alerts.
+/// Screens: call, login, login-code, login-email, home, home-parent, group, ask, lugichat, lugichat-thread, lugichat-limit, daily, daily-answered, more, alerts.
 /// Release builds (TestFlight) compile this away: `isOn` is always false there.
 enum PreviewMode {
     #if DEBUG
@@ -92,7 +92,7 @@ enum PreviewMode {
           {"id":"pm1","scheduledAt":"\(iso(-17 * 86400))","durationMin":90,"topics":"מבוא לפרבולה","homeworkText":null,"attended":false}],
          "upcoming":[{"id":"l1","scheduledAt":"\(iso(-300))","durationMin":90,"extra":false},{"id":"l1b","scheduledAt":"\(iso(3 * 86400))","durationMin":90,"extra":false},{"id":"l1c","scheduledAt":"\(iso(7 * 86400))","durationMin":90,"extra":true}],
          "homework":[{"id":"h1","title":"פונקציות ריבועיות","status":"assigned","dueDate":"2026-11-10","total":6,"correct":2,"lessonId":"p1"}],
-         "questions":[{"id":"q1","lessonId":"l1","text":"אני לא מבין איך מוצאים את הקודקוד כשאין b","createdAt":"\(iso(-7200))"}]}
+         "questions":[{"id":"q1","hasImage":true,"lessonId":"l1","text":"אני לא מבין איך מוצאים את הקודקוד כשאין b","createdAt":"\(iso(-7200))"}]}
         """
     }
 

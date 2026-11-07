@@ -93,6 +93,8 @@ jobs:
           shoot 11-daily-answered daily-answered portrait
           shoot 12-alerts alerts portrait
           shoot 13-more more portrait
+          shoot 14-call call portrait
+          shoot 15-ask ask portrait
           ls -la shots
 
       - uses: actions/upload-artifact@v4
@@ -132,6 +134,7 @@ jobs:
           shoot ipad-lugichat-thread lugichat-thread
           shoot ipad-daily-answered daily-answered
           shoot ipad-login login
+          shoot ipad-call call
           ls -la shots-ipad
 
       - uses: actions/upload-artifact@v4

@@ -5,6 +5,7 @@ struct LugipodStudentApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var auth = AuthStore.shared
     @StateObject private var router = AppRouter()
+    @StateObject private var call = CallManager()
 
     init() { AppAppearance.configure() }
 
@@ -13,6 +14,7 @@ struct LugipodStudentApp: App {
             RootView()
                 .environmentObject(auth)
                 .environmentObject(router)
+                .environmentObject(call)
                 .environment(\.layoutDirection, .rightToLeft)
                 .environment(\.locale, Locale(identifier: "he_IL"))
                 .preferredColorScheme(.light)
