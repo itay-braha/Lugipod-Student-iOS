@@ -274,3 +274,11 @@ struct CoinCounter: View {
 
     private func format(_ v: Double) -> String { v == v.rounded() ? String(Int(v)) : String(format: "%.1f", v) }
 }
+
+/// The height of the status bar / Dynamic Island area, so a screen can draw its colour under it and keep its content below it.
+enum ScreenInsets {
+    static var top: CGFloat {
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        return scene?.keyWindow?.safeAreaInsets.top ?? 47
+    }
+}

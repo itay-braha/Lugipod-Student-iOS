@@ -30,7 +30,7 @@ enum MathHTML {
         <style>
           html,body{margin:0;padding:0;background:transparent}
           body{font:16px/1.6 -apple-system,"Heebo",sans-serif;color:#0F172A;word-wrap:break-word;overflow-wrap:anywhere}
-          .katex{font-size:1.05em;direction:ltr;unicode-bidi:isolate}
+          .katex{font-size:1.05em;direction:ltr;unicode-bidi:isolate;display:inline-block;max-width:100%;overflow-x:auto;overflow-y:hidden;vertical-align:middle}
           .katex-display{margin:.5em 0;overflow-x:auto;overflow-y:hidden}
         </style></head><body><div id="c">\(s)</div>
         <script src="katex/katex.min.js"></script><script src="katex/auto-render.min.js"></script>
