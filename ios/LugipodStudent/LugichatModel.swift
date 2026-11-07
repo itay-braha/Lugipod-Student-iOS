@@ -6,57 +6,70 @@ struct ChatMessage: Identifiable, Equatable {
     let id = UUID()
     let role: Role
     var body: String
+    var image: UIImage? = nil
 }
 
-/// One Lugichat conversation about one photographed question. The server keeps nothing: every turn re-sends the photo and the
-/// thread (POST /api/student/guided-solve, with the app's bearer token).
+/// One Lugichat conversation. The server keeps nothing: every turn re-sends the latest photo and the thread
+/// (POST /api/student/guided-solve, with the app's bearer token). The student never picks a subject: the server reads it from the
+/// question and from the groups the student is in.
 @MainActor
 final class LugichatModel: ObservableObject {
     @Published private(set) var messages: [ChatMessage] = []
-    @Published private(set) var image: UIImage?
+    /// A photo attached to the message being written.
+    @Published var pending: UIImage?
     @Published private(set) var sending = false
     @Published var error: String?
-    /// The free answers of the day (and any pack) are used up.
+    /// The free answers (and any pack) are used up.
     @Published private(set) var limitHit = false
     @Published private(set) var quota: Quota?
-    @Published var subjectId: String?
 
     private var imageBase64 = ""
+    /// Which of the welcome lines is shown (picked once per app launch, so it does not flicker).
+    let greetingSeed = Int.random(in: 0..<1000)
 
-    var hasThread: Bool { image != nil || !messages.isEmpty }
-    /// The last turn failed (a student message or the photo is waiting for an answer).
-    var canRetry: Bool { error != nil && !sending && (messages.last?.role == .student || messages.isEmpty) && hasThread }
+    var hasThread: Bool { !messages.isEmpty }
+    /// The last turn failed: there is a student message still waiting for its answer.
+    var canRetry: Bool { error != nil && !sending && messages.last?.role == .student }
+
+    /// Only when the student is close to running out do we say anything about it (never the daily figure).
+    var runningLow: Int? {
+        guard let r = quota?.remaining, r <= 3, r > 0 else { return nil }
+        return r
+    }
 
     #if DEBUG
     func loadPreview(_ sample: (messages: [ChatMessage], limit: Bool)) {
         messages = sample.messages
         limitHit = sample.limit
+        if sample.limit { quota = Quota(freeLeft: 0, freePerDay: nil, packLeft: 0, canAsk: false) } else { quota = Quota(freeLeft: 2, freePerDay: nil, packLeft: 0, canAsk: true) }
     }
     #endif
 
     func reset() {
-        messages = []; image = nil; imageBase64 = ""; error = nil; limitHit = false
+        messages = []; pending = nil; imageBase64 = ""; error = nil; limitHit = false
     }
 
-    func start(with picture: UIImage) {
-        reset()
-        image = picture
-        imageBase64 = Self.encode(picture)
-        Task { await send(nil) }
-    }
-
-    func send(_ text: String?) async {
+    func send(_ text: String) async {
         guard !sending else { return }
-        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !trimmed.isEmpty { messages.append(ChatMessage(role: .student, body: trimmed)) }
-        guard hasThread else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty || pending != nil else { return }
+        if let img = pending { imageBase64 = Self.encode(img) }
+        messages.append(ChatMessage(role: .student, body: trimmed, image: pending))
+        pending = nil
+        await run()
+    }
+
+    func retry() async { await run() }
+
+    private func run() async {
+        guard !sending else { return }
         sending = true; error = nil
         defer { sending = false }
+        let thread = messages.filter { !$0.body.isEmpty }
         let payload: [String: Any] = [
             "imageBase64": imageBase64,
             "mimeType": "image/jpeg",
-            "subjectId": subjectId ?? NSNull(),
-            "messages": messages.map { ["role": $0.role == .student ? "student" : "bot", "body": $0.body] },
+            "messages": thread.map { ["role": $0.role == .student ? "student" : "bot", "body": $0.body] },
         ]
         do {
             let data = try await API.request("POST", "/api/student/guided-solve", json: payload, timeout: 75)
@@ -65,7 +78,7 @@ final class LugichatModel: ObservableObject {
             if let q = reply.quota { quota = q }
         } catch APIError.server(let status, _) where status == 402 {
             limitHit = true
-            // The unanswered student message stays in the thread, so nothing the student wrote is lost.
+            quota = Quota(freeLeft: 0, freePerDay: nil, packLeft: 0, canAsk: false)
         } catch APIError.notSignedIn {
             await AuthStore.shared.signOut()
         } catch APIError.server(_, let message) where !message.isEmpty {
@@ -81,7 +94,7 @@ final class LugichatModel: ObservableObject {
     }
 
     /// Longest side 1600 px, JPEG: sharp enough to read handwriting, small enough to send over mobile data.
-    static func encode(_ image: UIImage) -> String {
+    nonisolated static func encode(_ image: UIImage) -> String {
         let maxSide: CGFloat = 1600
         let scale = min(1, maxSide / max(image.size.width, image.size.height))
         let size = CGSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
@@ -91,5 +104,21 @@ final class LugichatModel: ObservableObject {
             image.draw(in: CGRect(origin: .zero, size: size))
         }
         return (resized.jpegData(compressionQuality: 0.8) ?? Data()).base64EncodedString()
+    }
+
+    /// A welcome line that changes from visit to visit, so it feels like someone is there.
+    func greeting(name: String, now: Date = Date()) -> String {
+        let first = name.split(separator: " ").first.map(String.init) ?? ""
+        let hour = Calendar.current.component(.hour, from: now)
+        let part = hour < 5 ? "לילה טוב" : hour < 12 ? "בוקר טוב" : hour < 18 ? "צהריים טובים" : "ערב טוב"
+        let lines = [
+            first.isEmpty ? "במה נתקדם היום?" : "במה נתקדם היום, \(first)?",
+            first.isEmpty ? part : "\(part), \(first)",
+            "מה תקוע לכם היום?",
+            "איזה תרגיל נפתור יחד?",
+            "בואו נבין את זה ביחד",
+            first.isEmpty ? "מה על הפרק?" : "מה על הפרק, \(first)?",
+        ]
+        return lines[greetingSeed % lines.count]
     }
 }

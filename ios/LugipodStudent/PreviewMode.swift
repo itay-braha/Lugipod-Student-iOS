@@ -2,7 +2,7 @@ import Foundation
 
 /// A development aid: `LUGIPOD_PREVIEW=<screen>` (an environment variable, set by CI through `simctl launch`) makes a DEBUG build
 /// skip sign-in and show a screen with sample data, so every screen can be screenshotted in the simulator without a server.
-/// Screens: login, login-code, login-email, home, home-done, lugichat, lugichat-thread, lugichat-limit, more, alerts.
+/// Screens: login, login-code, login-email, home, home-parent, group, ask, lugichat, lugichat-thread, lugichat-limit, daily, daily-answered, more, alerts.
 /// Release builds (TestFlight) compile this away: `isOn` is always false there.
 enum PreviewMode {
     #if DEBUG
@@ -12,7 +12,7 @@ enum PreviewMode {
 
     static func tab() -> AppRouter.Tab? {
         switch screen {
-        case "home", "home-done", "alerts": return .home
+        case "home", "home-parent", "group", "ask", "alerts": return .home
         case "lugichat", "lugichat-thread", "lugichat-limit": return .lugichat
         case "daily", "daily-answered": return .practice
         case "more": return .more
@@ -27,9 +27,10 @@ enum PreviewMode {
         switch screen {
         case "lugichat-thread", "lugichat-limit":
             return ([
-                ChatMessage(role: .bot, body: "בואו נפרק את זה. הגוף נע בתאוצה קבועה, אז נשתמש במשוואות התנועה.\n\n**שלב 1.** מה הנתונים? $v_0 = 0$, $a = 2\\ \\text{m/s}^2$, $t = 5\\ \\text{s}$.\n\n$$x = v_0 t + \\frac{1}{2} a t^2$$\n\nמה יוצא לכם אם מציבים?"),
-                ChatMessage(role: .student, body: "25 מטר?"),
-                ChatMessage(role: .bot, body: "בדיוק! $x = \\frac{1}{2}\\cdot 2 \\cdot 5^2 = 25\\ \\text{m}$. עכשיו, איך תמצאו את המהירות בסוף התנועה?"),
+                ChatMessage(role: .student, body: "אני לא מבין איך מוצאים את המהירות אחרי 5 שניות"),
+                ChatMessage(role: .bot, body: "בואו נפרק את זה. הגוף יוצא ממנוחה ומאיץ בתאוצה קבועה, אז נשתמש במשוואות התנועה.\n\n**שלב 1.** מה הנתונים? $v_0 = 0$, $a = 2\\ \\text{m/s}^2$, $t = 5\\ \\text{s}$.\n\n$$v = v_0 + a t$$\n\nמה יוצא לכם אם מציבים?"),
+                ChatMessage(role: .student, body: "10 מטר לשנייה?"),
+                ChatMessage(role: .bot, body: "בדיוק! $v = 0 + 2 \\cdot 5 = 10\\ \\text{m/s}$. עכשיו, איך תמצאו את המרחק שהוא עבר באותן 5 שניות?"),
             ], screen == "lugichat-limit")
         default:
             return nil
@@ -39,13 +40,12 @@ enum PreviewMode {
     // MARK: Sample server responses
 
     static func response(method: String, path: String) -> Data {
-        if path.hasPrefix("/api/native/student/daily/answer") {
-            return Data("{\"correct\":false,\"answerIndex\":1,\"explanation\":\"הנוסחה היא $v = v_0 + at$. מציבים $v_0 = 0$, $a = 2$, $t = 5$ ומקבלים $v = 10\\\\ \\\\text{m/s}$.\",\"streak\":6}".utf8)
-        }
+        if path.hasPrefix("/api/native/student/daily/answer") { return Data("{\"streak\":7}".utf8) }
         if method != "GET" { return Data("{\"ok\":true}".utf8) }
         let json: String
-        if path.hasPrefix("/api/native/student/daily") { return Data(daily().utf8) }
-        if path.hasPrefix("/api/native/student/home") { json = home(done: screen == "home-done") }
+        if path.hasPrefix("/api/native/student/daily") { json = daily() }
+        else if path.hasPrefix("/api/native/student/group/") { json = groupDetail() }
+        else if path.hasPrefix("/api/native/student/home") { json = home() }
         else if path.hasPrefix("/api/native/alerts") { json = alerts() }
         else { json = "{}" }
         return Data(json.utf8)
@@ -55,28 +55,52 @@ enum PreviewMode {
         ISO8601DateFormatter().string(from: Date().addingTimeInterval(offset))
     }
 
-    private static func home(done: Bool) -> String {
-        """
-        {"student":{"id":"s1","name":"נועה כהן","grade":"י׳"},
-         "lessons":[
-           {"id":"l1","groupId":"g1","title":"מתמטיקה · 5 יח״ל","teacher":"איתי","scheduledAt":"\(iso(-300))","durationMin":90,"phase":"live"},
-           {"id":"l2","groupId":"g1","title":"מתמטיקה · 5 יח״ל","teacher":"איתי","scheduledAt":"\(iso(3 * 86400))","durationMin":90,"phase":"upcoming"},
-           {"id":"l3","groupId":"g2","title":"פיזיקה · 5 יח״ל","teacher":"רועי","scheduledAt":"\(iso(4 * 86400))","durationMin":90,"phase":"upcoming"}],
+    private static func home() -> String {
+        let parent = screen == "home-parent" ? "true" : "false"
+        return """
+        {"student":{"id":"s1","name":"נועה כהן"},
          "groups":[
-           {"id":"g1","title":"מתמטיקה · 5 יח״ל","teacher":"איתי","members":4,"weekly":1},
-           {"id":"g2","title":"פיזיקה · 5 יח״ל","teacher":"רועי","members":3,"weekly":2}],
-         "dailyChallenge":{"doneToday":\(done),"streak":6},
+          {"id":"g1","title":"מתמטיקה · 5 יח״ל","subject":"מתמטיקה","teacher":"איתי","mates":["דנה","יואב","תמר"],"weekly":2,
+           "upcoming":[{"id":"l1","groupId":"g1","scheduledAt":"\(iso(-300))","durationMin":90,"extra":false},{"id":"l1b","groupId":"g1","scheduledAt":"\(iso(3 * 86400))","durationMin":90,"extra":false}],
+           "last":{"id":"p1","scheduledAt":"\(iso(-3 * 86400))","topics":"פונקציה ריבועית: קודקוד וחיתוכים עם הצירים","homeworkText":"שאלות 3 עד 6 בדף"},
+           "homework":[{"id":"h1","title":"פונקציות ריבועיות","status":"assigned","dueDate":"2026-11-10","total":6,"correct":2}],
+           "pastCount":7,"myQuestions":1},
+          {"id":"g2","title":"פיזיקה · 5 יח״ל","subject":"פיזיקה","teacher":"רועי","mates":["איתן","מאיה"],"weekly":2,
+           "upcoming":[{"id":"l2","groupId":"g2","scheduledAt":"\(iso(26 * 3600))","durationMin":90,"extra":false}],
+           "last":{"id":"p2","scheduledAt":"\(iso(-2 * 86400))","topics":"תנועה בתאוצה קבועה","homeworkText":null},
+           "homework":[{"id":"h2","title":"קינמטיקה","status":"completed","dueDate":null,"total":5,"correct":4}],
+           "pastCount":4,"myQuestions":0},
+          {"id":"g3","title":"מדעי המחשב · 5 יח״ל","subject":"מדעי המחשב","teacher":"נועה","mates":[],"weekly":1,
+           "upcoming":[{"id":"l3","groupId":"g3","scheduledAt":"\(iso(5 * 86400))","durationMin":60,"extra":false}],
+           "last":null,"homework":[],"pastCount":0,"myQuestions":0},
+          {"id":"g4","title":"כימיה · כיתה י׳","subject":"כימיה","teacher":"דנה","mates":["שיר"],"weekly":1,
+           "upcoming":[{"id":"l4","groupId":"g4","scheduledAt":"\(iso(6 * 86400))","durationMin":60,"extra":false}],
+           "last":null,"homework":[],"pastCount":0,"myQuestions":0}],
+         "consumption":{"period":"2026-11","consumedLugis":7.5,"capLugis":12,"pctUsed":62,"uncapped":false,"creditLugis":1},
+         "family":{"hasParent":\(parent)},
+         "dailyChallenge":{"doneToday":false,"streak":6},
          "lugichat":{"free_left":14,"free_per_day":20,"pack_left":0,"can_ask":true},
-         "subjects":[{"id":"sub1","name":"מתמטיקה","mine":true},{"id":"sub2","name":"פיזיקה","mine":true},{"id":"sub3","name":"מדעי המחשב","mine":false}],
          "unreadAlerts":2}
+        """
+    }
+
+    private static func groupDetail() -> String {
+        """
+        {"past":[
+          {"id":"p1","scheduledAt":"\(iso(-3 * 86400))","durationMin":90,"topics":"פונקציה ריבועית: קודקוד וחיתוכים עם הצירים","homeworkText":"שאלות 3 עד 6 בדף","attended":true},
+          {"id":"p0","scheduledAt":"\(iso(-10 * 86400))","durationMin":90,"topics":"משוואות ריבועיות ונוסחת השורשים","homeworkText":null,"attended":true},
+          {"id":"pm1","scheduledAt":"\(iso(-17 * 86400))","durationMin":90,"topics":"מבוא לפרבולה","homeworkText":null,"attended":false}],
+         "upcoming":[{"id":"l1","scheduledAt":"\(iso(-300))","durationMin":90,"extra":false},{"id":"l1b","scheduledAt":"\(iso(3 * 86400))","durationMin":90,"extra":false},{"id":"l1c","scheduledAt":"\(iso(7 * 86400))","durationMin":90,"extra":true}],
+         "homework":[{"id":"h1","title":"פונקציות ריבועיות","status":"assigned","dueDate":"2026-11-10","total":6,"correct":2,"lessonId":"p1"}],
+         "questions":[{"id":"q1","lessonId":"l1","text":"אני לא מבין איך מוצאים את הקודקוד כשאין b","createdAt":"\(iso(-7200))"}]}
         """
     }
 
     private static func daily() -> String {
         """
         {"subject":{"id":"sub1","name":"פיזיקה"},"level":"5 יח״ל","doneToday":false,"streak":6,
-         "questions":[{"id":"q1","prompt":"גוף יוצא ממנוחה ומאיץ בתאוצה קבועה של $2\\\\ \\\\text{m/s}^2$. מה מהירותו אחרי $5$ שניות?","choices":["$5\\\\ \\\\text{m/s}$","$10\\\\ \\\\text{m/s}$","$25\\\\ \\\\text{m/s}$","$50\\\\ \\\\text{m/s}$"]},
-                     {"id":"q2","prompt":"מהו כוח הנורמל על ספר במנוחה על שולחן?","choices":["שווה למשקל הספר","גדול ממשקל הספר","אפס","תלוי בצבע השולחן"]}]}
+         "questions":[{"id":"q1","prompt":"גוף יוצא ממנוחה ומאיץ בתאוצה קבועה של $2\\\\ \\\\text{m/s}^2$. מה מהירותו אחרי $5$ שניות?","choices":["$5\\\\ \\\\text{m/s}$","$10\\\\ \\\\text{m/s}$","$25\\\\ \\\\text{m/s}$","$50\\\\ \\\\text{m/s}$"],"answerIndex":1,"explanation":"המהירות היא $v = v_0 + at = 0 + 2 \\\\cdot 5 = 10\\\\ \\\\text{m/s}$."},
+                     {"id":"q2","prompt":"מהו כוח הנורמל על ספר במנוחה על שולחן?","choices":["שווה למשקל הספר","גדול ממשקל הספר","אפס","תלוי בצבע השולחן"],"answerIndex":0,"explanation":"הספר במנוחה, לכן הכוחות עליו מאוזנים והנורמל שווה למשקל."}]}
         """
     }
 

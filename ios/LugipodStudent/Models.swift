@@ -4,43 +4,130 @@ import Foundation
 
 enum LessonPhase: String, Decodable { case upcoming, live, ended }
 
-/// GET /api/native/student/home
-struct StudentHome: Decodable {
-    struct Student: Decodable { let id: String; let name: String }
+/// GET /api/native/student/home: everything the home screen shows, in one response.
+struct StudentHome: Decodable, Equatable {
+    struct Student: Decodable, Equatable { let id: String; let name: String }
+
     struct Lesson: Decodable, Identifiable, Equatable {
         let id: String
         let groupId: String
-        let title: String
-        let teacher: String?
         let scheduledAt: Date
         let durationMin: Int
-        let phase: LessonPhase
+        let extra: Bool
+
+        /// Computed on the device, so a lesson turns "live" 15 minutes before it starts without waiting for a refresh.
+        func phase(now: Date = Date()) -> LessonPhase {
+            let end = scheduledAt.addingTimeInterval(Double(durationMin + 15) * 60)
+            if now > end { return .ended }
+            return now >= scheduledAt.addingTimeInterval(-15 * 60) ? .live : .upcoming
+        }
     }
+
+    struct LastLesson: Decodable, Equatable {
+        let id: String
+        let scheduledAt: Date
+        let topics: String?
+        let homeworkText: String?
+    }
+
+    struct Homework: Decodable, Identifiable, Equatable {
+        let id: String
+        let title: String
+        let status: String
+        let dueDate: String?
+        let total: Int
+        let correct: Int
+        var isDone: Bool { status == "completed" || status == "done" }
+    }
+
     struct Group: Decodable, Identifiable, Equatable {
         let id: String
         let title: String
+        let subject: String
         let teacher: String?
-        let members: Int
+        let mates: [String]
         let weekly: Int
+        let upcoming: [Lesson]
+        let last: LastLesson?
+        let homework: [Homework]
+        let pastCount: Int
+        let myQuestions: Int
+
+        /// The next lesson that has not ended yet (live now, or the closest coming one).
+        func nextLesson(now: Date = Date()) -> Lesson? { upcoming.first { $0.phase(now: now) != .ended } }
     }
+
+    struct Consumption: Decodable, Equatable {
+        let period: String?
+        let consumedLugis: Double
+        let capLugis: Double?
+        let pctUsed: Double
+        let uncapped: Bool
+        let creditLugis: Double
+    }
+
+    struct Family: Decodable, Equatable { let hasParent: Bool }
     struct Daily: Decodable, Equatable { let doneToday: Bool; let streak: Int }
-    struct Subject: Decodable, Identifiable, Equatable { let id: String; let name: String; let mine: Bool }
 
     let student: Student
-    let lessons: [Lesson]
     let groups: [Group]
+    let consumption: Consumption
+    let family: Family
     let dailyChallenge: Daily
     let lugichat: Quota?
-    let subjects: [Subject]
     let unreadAlerts: Int
 }
 
-/// The Lugichat allowance (20 free answers a day; a pack adds more). Every field is optional so an older server cannot break the app.
+/// GET /api/native/student/group/<id>
+struct GroupDetail: Decodable, Equatable {
+    struct Past: Decodable, Identifiable, Equatable {
+        let id: String
+        let scheduledAt: Date
+        let durationMin: Int
+        let topics: String?
+        let homeworkText: String?
+        let attended: Bool?
+    }
+    struct Upcoming: Decodable, Identifiable, Equatable {
+        let id: String
+        let scheduledAt: Date
+        let durationMin: Int
+        let extra: Bool
+    }
+    struct Question: Decodable, Identifiable, Equatable {
+        let id: String
+        let lessonId: String?
+        let text: String
+        let createdAt: Date
+    }
+    struct Homework: Decodable, Identifiable, Equatable {
+        let id: String
+        let title: String
+        let status: String
+        let dueDate: String?
+        let total: Int
+        let correct: Int
+        let lessonId: String?
+        var isDone: Bool { status == "completed" || status == "done" }
+    }
+    let past: [Past]
+    let upcoming: [Upcoming]
+    let homework: [Homework]
+    let questions: [Question]
+}
+
+/// The Lugichat allowance. Every field is optional so an older server cannot break the app. The app never shows the daily figure;
+/// it only reads `remaining` to warn when the student is about to run out.
 struct Quota: Decodable, Equatable {
     var freeLeft: Int?
     var freePerDay: Int?
     var packLeft: Int?
     var canAsk: Bool?
+
+    var remaining: Int? {
+        guard let free = freeLeft else { return nil }
+        return free + (packLeft ?? 0)
+    }
 }
 
 struct AlertsResponse: Decodable {

@@ -1,120 +1,99 @@
 import PhotosUI
 import SwiftUI
 
-/// The camera screen of Lugichat: photograph a question, then talk it through with Lugi step by step.
+/// Lugichat: a chat. Type, or attach a photo of the question, and Lugi answers step by step. No subject to choose, no fox in the way.
 struct LugichatView: View {
     @EnvironmentObject private var home: HomeModel
-    @StateObject private var model = LugichatModel()
+    @EnvironmentObject private var model: LugichatModel
+    @State private var draft = ""
     @State private var showCamera = false
     @State private var pickerItem: PhotosPickerItem?
-    @State private var draft = ""
     @FocusState private var typing: Bool
 
     private var cameraAvailable: Bool { UIImagePickerController.isSourceTypeAvailable(.camera) }
-    private var quota: Quota? { model.quota ?? home.data?.lugichat }
-    private var subjects: [StudentHome.Subject] { home.data?.subjects ?? [] }
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            if model.hasThread { thread } else { intro }
-            if model.hasThread && !model.limitHit { composer }
+            topBar
+            if model.hasThread { thread } else { welcome }
+            composer
         }
         .background(ScreenBackground())
         .fullScreenCover(isPresented: $showCamera) {
-            CameraPicker { model.start(with: $0) }.ignoresSafeArea()
+            CameraPicker { model.pending = $0 }.ignoresSafeArea()
         }
         .onChange(of: pickerItem) { _, item in
             guard let item else { return }
             Task {
-                if let data = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: data) {
-                    model.start(with: img)
-                }
+                if let data = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: data) { model.pending = img }
                 pickerItem = nil
             }
         }
         .onAppear {
             #if DEBUG
-            if let preview = PreviewMode.lugichat() { model.loadPreview(preview) }
+            if let preview = PreviewMode.lugichat(), !model.hasThread { model.loadPreview(preview) }
             #endif
-            if model.subjectId == nil { model.subjectId = subjects.first(where: \.mine)?.id ?? subjects.first?.id }
-        }
-        .onChange(of: subjects) { _, list in
-            if model.subjectId == nil { model.subjectId = list.first(where: \.mine)?.id ?? list.first?.id }
         }
     }
 
-    // MARK: Header
+    // MARK: Top bar
 
-    private var header: some View {
-        HStack(alignment: .center, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("לוגיצ׳אט").font(.heebo(26, 800)).foregroundStyle(Theme.ink)
-                Text(allowanceLine).font(.heebo(13, 600)).foregroundStyle(Theme.slate500)
+    private var topBar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.violet500)
+                Text("לוגיצ׳אט").font(.heebo(22, 800)).foregroundStyle(Theme.ink)
             }
             Spacer()
             if model.hasThread {
-                Button("שאלה חדשה") { model.reset(); draft = "" }.buttonStyle(SoftButtonStyle())
+                Button { model.reset(); draft = "" } label: {
+                    Image(systemName: "square.and.pencil").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.violet700)
+                        .frame(width: 42, height: 42).background(Theme.violet50, in: Circle())
+                }
+                .accessibilityLabel("שיחה חדשה")
             }
         }
-        .padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 8)
+        .frame(maxWidth: 720)
+        .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 6)
+        .frame(maxWidth: .infinity)
     }
 
-    private var allowanceLine: String {
-        guard let q = quota, let left = q.freeLeft else { return "צלמו שאלה ולוגי ידריך אתכם" }
-        let total = left + (q.packLeft ?? 0)
-        return total > 0 ? "נשארו \(total) תשובות להיום" : "התשובות של היום נגמרו"
-    }
+    // MARK: Empty state
 
-    // MARK: Before a photo
-
-    private var intro: some View {
-        ScrollView {
-            VStack(spacing: 18) {
-                Lugi(pose: .study, height: 150).padding(.top, 8)
-                Text("צלמו שאלה שתקעה אתכם").font(.heebo(22, 800)).foregroundStyle(Theme.ink)
-                Text("לוגי לא נותן את התשובה מיד. הוא מדריך אתכם צעד אחר צעד, ואפשר תמיד לבקש רמז או פתרון.")
-                    .font(.heebo(15, 500)).foregroundStyle(Theme.slate600).multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
-
-                if subjects.count > 1 {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(subjects) { s in
-                                Button { model.subjectId = s.id } label: {
-                                    Text(s.name).font(.heebo(14, 700))
-                                        .foregroundStyle(model.subjectId == s.id ? .white : Theme.slate600)
-                                        .padding(.horizontal, 14).padding(.vertical, 8)
-                                        .background(model.subjectId == s.id ? Theme.brand600 : Color.white, in: Capsule())
-                                        .overlay(Capsule().strokeBorder(Theme.slate200, lineWidth: model.subjectId == s.id ? 0 : 1))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                    }
-                }
-
-                VStack(spacing: 12) {
-                    if cameraAvailable {
-                        Button { showCamera = true } label: { Label("צילום שאלה", systemImage: "camera.fill") }
-                            .buttonStyle(PrimaryButtonStyle())
-                    }
-                    PhotosPicker(selection: $pickerItem, matching: .images) {
-                        Label("בחירה מהגלריה", systemImage: "photo.on.rectangle")
-                    }
-                    .buttonStyle(cameraAvailable ? AnyButtonStyle(SecondaryButtonStyle()) : AnyButtonStyle(PrimaryButtonStyle()))
-                }
-                .padding(.horizontal, 20)
-
-                if quota?.canAsk == false {
-                    limitCard.padding(.horizontal, 20)
-                }
+    private var welcome: some View {
+        VStack(spacing: 18) {
+            Spacer(minLength: 20)
+            Text(model.greeting(name: home.data?.student.name ?? ""))
+                .font(.heebo(30, 800)).foregroundStyle(Theme.ink).multilineTextAlignment(.center)
+            Text("כתבו שאלה, או צלמו תרגיל. אני מדריך צעד אחר צעד.")
+                .font(.heebo(16, 500)).foregroundStyle(Theme.slate500).multilineTextAlignment(.center)
+            VStack(spacing: 10) {
+                if cameraAvailable { suggestion("צילום של תרגיל שתקוע", icon: "camera.fill") { showCamera = true } }
+                suggestion("הסבירו לי נושא", icon: "lightbulb.fill") { draft = "תסבירו לי "; typing = true }
+                suggestion("בדקו לי את הפתרון", icon: "checkmark.seal.fill") { draft = "בדקו לי את הפתרון: "; typing = true }
             }
-            .frame(maxWidth: 520)
-            .frame(maxWidth: .infinity)
-            .padding(.bottom, 30)
+            .frame(maxWidth: 420)
+            .padding(.top, 8)
+            Spacer(minLength: 20)
         }
+        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onTapGesture { typing = false }
+    }
+
+    private func suggestion(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon).font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.violet500)
+                Text(title).font(.heebo(16, 700)).foregroundStyle(Theme.ink)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 14)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.slate200, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Conversation
@@ -122,128 +101,154 @@ struct LugichatView: View {
     private var thread: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(spacing: 12) {
-                    if let image = model.image {
-                        Image(uiImage: image)
-                            .resizable().scaledToFit()
-                            .frame(maxHeight: 190)
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.slate200, lineWidth: 1))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    ForEach(model.messages) { m in bubble(m).id(m.id) }
-                    if model.sending {
-                        HStack(spacing: 8) {
-                            ProgressView()
-                            Text("לוגי חושב…").font(.heebo(14, 600)).foregroundStyle(Theme.slate500)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading).id("typing")
-                    }
+                VStack(spacing: 18) {
+                    ForEach(model.messages) { m in row(m).id(m.id) }
+                    if model.sending { TypingDots().frame(maxWidth: .infinity, alignment: .leading).id("typing") }
                     if let error = model.error {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(error).font(.heebo(14, 600)).foregroundStyle(Theme.rose600)
-                            if model.canRetry {
-                                Button("נסו שוב") { Task { await model.send(nil) } }.buttonStyle(SoftButtonStyle())
-                            }
+                            if model.canRetry { Button("נסו שוב") { Task { await model.retry() } }.buttonStyle(SoftButtonStyle()) }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    if let low = model.runningLow, !model.sending, model.messages.last?.role == .bot {
+                        Text(low == 1 ? "נשארה לך תשובה אחת להיום" : "נשארו לך \(low) תשובות להיום")
+                            .font(.heebo(12, 600)).foregroundStyle(Theme.slate400).frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     if model.limitHit { limitCard }
-                    Color.clear.frame(height: 4).id("end")
+                    Color.clear.frame(height: 2).id("end")
                 }
-                .padding(.horizontal, 16).padding(.top, 4)
+                .frame(maxWidth: 720)
+                .padding(.horizontal, 18).padding(.top, 6)
+                .frame(maxWidth: .infinity)
             }
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: model.messages) { _, _ in withAnimation { proxy.scrollTo("end") } }
             .onChange(of: model.sending) { _, _ in withAnimation { proxy.scrollTo("end") } }
+            .onChange(of: model.limitHit) { _, _ in withAnimation { proxy.scrollTo("end") } }
         }
     }
 
     @ViewBuilder
-    private func bubble(_ m: ChatMessage) -> some View {
+    private func row(_ m: ChatMessage) -> some View {
         switch m.role {
         case .student:
-            Text(m.body)
-                .font(.heebo(16, 600)).foregroundStyle(.white)
-                .padding(.horizontal, 14).padding(.vertical, 10)
-                .background(Theme.brand600, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.leading, 48)
-        case .bot:
-            HStack(alignment: .top, spacing: 8) {
-                Image("Lugi-peek").resizable().scaledToFit().frame(width: 34, height: 34).accessibilityHidden(true)
-                MathText(text: m.body)
-                    .padding(.horizontal, 14).padding(.vertical, 10)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.slate200, lineWidth: 1))
+            VStack(alignment: .leading, spacing: 8) {
+                if let image = m.image {
+                    Image(uiImage: image).resizable().scaledToFill()
+                        .frame(width: 190, height: 150).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                if !m.body.isEmpty {
+                    Text(m.body).font(.heebo(16, 600)).foregroundStyle(.white)
+                        .padding(.horizontal, 14).padding(.vertical, 10)
+                        .background(Theme.brand600, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.trailing, 24)
+            .padding(.trailing, 40)
+        case .bot:
+            // The answer is the page: no bubble, no avatar, just the text.
+            RichText(text: m.body, font: .heebo(16, 500), color: Theme.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
+    /// Shown only when the allowance is really over: why it exists, and how to go on, said calmly.
     private var limitCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("התשובות של היום נגמרו").font(.heebo(17, 800)).foregroundStyle(Theme.amber800)
-            Text("מחר בבוקר מתחדשות התשובות החינמיות. בינתיים אפשר לתרגל באתגר היומי או לשאול את המורה בשיעור.")
-                .font(.heebo(14, 500)).foregroundStyle(Theme.amber800)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "moon.stars.fill").foregroundStyle(Theme.violet500)
+                Text("עד כאן להיום בלי עלות").font(.heebo(18, 800)).foregroundStyle(Theme.ink)
+            }
+            Text("כל תשובה של לוגי היא עבודה אמיתית של מודל חכם, ולכן ההדרכה החינמית מוגבלת ביום. מחר בבוקר היא מתחדשת.")
+                .font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
+            Text("רוצים להמשיך עכשיו? חבילת לוגיצ׳אט נותנת 120 תשובות ל-14 ימים בעלות 2 לוגי, וההורים מפעילים אותה מאזור ההורים.")
+                .font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .card(padding: 16, fill: Theme.amber50, border: Theme.amber200)
+        .padding(16)
+        .background(
+            LinearGradient(colors: [Theme.violet50, Color.white], startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.violet500.opacity(0.25), lineWidth: 1))
     }
 
     // MARK: Composer
 
-    private var composer: some View {
-        VStack(spacing: 8) {
-            if !model.sending && model.messages.last?.role == .bot {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        quick("רמז נוסף", "אפשר רמז נוסף?")
-                        quick("לא הבנתי", "לא הבנתי, אפשר להסביר אחרת?")
-                        quick("הראו לי פתרון", "אני תקוע/ה. אפשר לראות את הפתרון המלא?")
+    @ViewBuilder private var composer: some View {
+        if model.limitHit {
+            EmptyView()
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                if let img = model.pending {
+                    ZStack(alignment: .topLeading) {
+                        Image(uiImage: img).resizable().scaledToFill().frame(width: 76, height: 76)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        Button { model.pending = nil } label: {
+                            Image(systemName: "xmark.circle.fill").font(.system(size: 22)).foregroundStyle(.white, Theme.slate700)
+                        }
+                        .offset(x: -6, y: -6)
+                        .accessibilityLabel("הסרת התמונה")
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+                }
+                HStack(alignment: .bottom, spacing: 8) {
+                    if cameraAvailable {
+                        Button { showCamera = true } label: { attach("camera.fill") }.accessibilityLabel("צילום")
+                    }
+                    PhotosPicker(selection: $pickerItem, matching: .images) { attach("photo.fill") }.accessibilityLabel("תמונה מהגלריה")
+                    TextField("שאלו את לוגי…", text: $draft, axis: .vertical)
+                        .lineLimit(1...5).font(.heebo(16, 500)).focused($typing)
+                        .padding(.vertical, 10)
+                    Button { submit() } label: {
+                        Image(systemName: "arrow.up").font(.system(size: 16, weight: .bold)).foregroundStyle(.white)
+                            .frame(width: 40, height: 40).background(canSend ? Theme.violet500 : Theme.slate300, in: Circle())
+                    }
+                    .disabled(!canSend)
+                    .accessibilityLabel("שליחה")
                 }
             }
-            HStack(spacing: 10) {
-                TextField("כתבו תשובה או שאלה…", text: $draft, axis: .vertical)
-                    .lineLimit(1...4)
-                    .font(.heebo(16, 500))
-                    .focused($typing)
-                    .padding(.horizontal, 14).padding(.vertical, 11)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.slate300, lineWidth: 1))
-                Button {
-                    let text = draft
-                    draft = ""
-                    Task { await model.send(text) }
-                } label: {
-                    Image(systemName: "arrow.up").font(.system(size: 17, weight: .bold)).foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(canSend ? Theme.brand600 : Theme.brand300, in: Circle())
-                }
-                .disabled(!canSend)
-                .accessibilityLabel("שליחה")
-            }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Theme.slate200, lineWidth: 1))
+            .shadow(color: Theme.shadowSoft2, radius: 8, y: 3)
+            .frame(maxWidth: 720)
+            .padding(.horizontal, 14).padding(.top, 6).padding(.bottom, 8)
+            .frame(maxWidth: .infinity)
         }
-        .padding(.top, 8).padding(.bottom, 8)
-        .background(Theme.page.opacity(0.96))
+    }
+
+    private func attach(_ icon: String) -> some View {
+        Image(systemName: icon).font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.violet700)
+            .frame(width: 40, height: 40).background(Theme.violet50, in: Circle())
     }
 
     private var canSend: Bool {
-        !model.sending && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !model.sending && (!draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.pending != nil)
     }
 
-    private func quick(_ label: String, _ text: String) -> some View {
-        Button { Task { await model.send(text) } } label: {
-            Text(label).font(.heebo(14, 700)).foregroundStyle(Theme.brand700)
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(Theme.brand50, in: Capsule())
-                .overlay(Capsule().strokeBorder(Theme.brand200, lineWidth: 1))
+    private func submit() {
+        let text = draft
+        draft = ""
+        Task { await model.send(text) }
+    }
+}
+
+/// Three dots that pulse while Lugi is thinking.
+struct TypingDots: View {
+    @State private var phase = 0
+    private let timer = Timer.publish(every: 0.35, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<3, id: \.self) { i in
+                Circle().fill(Theme.violet500.opacity(phase == i ? 1 : 0.3)).frame(width: 9, height: 9)
+            }
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 8)
+        .onReceive(timer) { _ in phase = (phase + 1) % 3 }
+        .accessibilityLabel("לוגי חושב")
     }
 }
 

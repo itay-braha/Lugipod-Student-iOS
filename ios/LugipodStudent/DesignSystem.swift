@@ -29,6 +29,8 @@ enum Theme {
     static let brand700 = Color(hex: 0x4338CA)
     static let brand800 = Color(hex: 0x3730A3)
     static let violet500 = Color(hex: 0x8B5CF6)
+    static let violet700 = Color(hex: 0x6D28D9)
+    static let violet50 = Color(hex: 0xF5F3FF)
 
     // Page + text
     static let page = Color(hex: 0xF7F8FC)
@@ -111,18 +113,15 @@ extension Font {
 /// amber one bottom-left.
 struct ScreenBackground: View {
     var body: some View {
+        // Two radial gradients instead of two full-screen 100 pt Gaussian blurs: the same glow, but a blur that large is re-rendered by
+        // the GPU on every scroll frame (the main reason the first build felt heavy, most of all on an iPad's big screen).
         ZStack {
             Theme.page
-            GeometryReader { geo in
-                Circle().fill(Theme.brand200.opacity(0.55))
-                    .frame(width: 560, height: 560).blur(radius: 100)
-                    .position(x: geo.size.width * 0.5, y: -60)
-                Circle().fill(Theme.amber200.opacity(0.40))
-                    .frame(width: 480, height: 480).blur(radius: 100)
-                    .position(x: geo.size.width * 0.12, y: geo.size.height * 0.96)
-            }
+            RadialGradient(colors: [Theme.brand200.opacity(0.55), Theme.brand200.opacity(0)], center: .init(x: 0.5, y: -0.02), startRadius: 0, endRadius: 380)
+            RadialGradient(colors: [Theme.amber200.opacity(0.40), Theme.amber200.opacity(0)], center: .init(x: 0.12, y: 1.0), startRadius: 0, endRadius: 340)
         }
         .ignoresSafeArea()
+        .drawingGroup()
     }
 }
 
@@ -289,7 +288,7 @@ enum LugiPose: String {
 struct Lugi: View {
     let pose: LugiPose
     var height: CGFloat = 140
-    var breathing = true
+    var breathing = false
     @State private var inhaled = false
 
     var body: some View {

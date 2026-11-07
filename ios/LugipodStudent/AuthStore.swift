@@ -69,6 +69,7 @@ final class AuthStore: ObservableObject {
     func signOut(notice: String? = nil) async {
         await PushNotifications.shared.willSignOut()
         try? await client.auth.signOut()
+        LocalCache.clearAll()
         state = .signedOut
         self.notice = notice
     }

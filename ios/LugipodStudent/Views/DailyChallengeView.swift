@@ -1,25 +1,8 @@
 import SwiftUI
 
-/// Text that typesets formulas only when it has any (a web view per choice would be wasteful for plain words).
-struct RichText: View {
-    let text: String
-    var font: Font = .heebo(16, 600)
-    var color: Color = Theme.ink
-
-    var body: some View {
-        if text.contains("$") {
-            MathText(text: text)
-        } else {
-            Text(text).font(font).foregroundStyle(color).multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-}
-
 struct DailyChallengeView: View {
     @EnvironmentObject private var router: AppRouter
-    @EnvironmentObject private var home: HomeModel
-    @StateObject private var model = DailyModel()
+    @EnvironmentObject private var model: DailyModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -27,7 +10,7 @@ struct DailyChallengeView: View {
             content
         }
         .background(ScreenBackground())
-        .task { await model.load() }
+        .task { await model.loadIfNeeded() }
     }
 
     private var header: some View {
@@ -39,7 +22,9 @@ struct DailyChallengeView: View {
             Spacer()
             Pill(text: "🔥 \(model.streak)", fg: Theme.amber800, bg: Theme.amber100)
         }
+        .frame(maxWidth: 720)
         .padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 8)
+        .frame(maxWidth: .infinity)
     }
 
     private var subtitle: String {
@@ -92,15 +77,14 @@ struct DailyChallengeView: View {
                             choice(q.choices[original], original: original)
                         }
                     }
-                    if let error = model.pickError {
-                        Text(error).font(.heebo(14, 600)).foregroundStyle(Theme.rose600)
-                    }
                     if let r = model.result { feedback(r).id("feedback") }
                     Color.clear.frame(height: 20).id("end")
                 }
+                .frame(maxWidth: 720)
                 .padding(.horizontal, 16).padding(.top, 4)
+                .frame(maxWidth: .infinity)
             }
-            .onChange(of: model.result?.explanation) { _, _ in withAnimation { proxy.scrollTo("end") } }
+            .onChange(of: model.result) { _, r in if r != nil { withAnimation { proxy.scrollTo("end") } } }
         }
     }
 
@@ -108,7 +92,7 @@ struct DailyChallengeView: View {
         HStack(spacing: 5) {
             ForEach(0..<model.total, id: \.self) { i in
                 Capsule()
-                    .fill(i < model.index ? Theme.emerald500 : (i == model.index ? Theme.brand500 : Theme.slate200))
+                    .fill(i < model.index ? Theme.emerald500 : (i == model.index ? Theme.amber500 : Theme.slate200))
                     .frame(height: 6)
             }
         }
@@ -123,7 +107,7 @@ struct DailyChallengeView: View {
             if answered && isPicked { return (Theme.rose600, Theme.rose50, Theme.rose500) }
             return (Theme.ink, .white, Theme.slate200)
         }()
-        return Button { Task { await model.pick(original) } } label: {
+        return Button { model.pick(original) } label: {
             HStack(spacing: 10) {
                 RichText(text: text, font: .heebo(17, 600), color: tint.fg)
                 if answered && isCorrect { Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.emerald500) }
@@ -136,11 +120,10 @@ struct DailyChallengeView: View {
             .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(.plain)
-        // Not `.disabled`: that would grey out the green correct answer too. The model ignores taps once an answer is in.
-        .allowsHitTesting(!answered && !model.checking)
+        .allowsHitTesting(!answered)
     }
 
-    private func feedback(_ r: DailyAnswer) -> some View {
+    private func feedback(_ r: DailyResult) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(r.correct ? "כל הכבוד! 🎉" : "לא בדיוק. זה בסדר, ככה לומדים.")
                 .font(.heebo(18, 800)).foregroundStyle(r.correct ? Theme.emerald700 : Theme.amber800)
@@ -169,6 +152,7 @@ struct DailyChallengeView: View {
                     Button("מבחן רמה ועוד באתר") { router.open(path: "/dashboard") }
                         .font(.heebo(14, 700)).foregroundStyle(Theme.slate600).padding(.top, 4)
                 }
+                .frame(maxWidth: 420)
                 .padding(.top, 8)
             }
             .padding(.horizontal, 20)

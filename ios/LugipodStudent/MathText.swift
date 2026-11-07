@@ -96,3 +96,27 @@ struct MathWebView: UIViewRepresentable {
         }
     }
 }
+
+/// Text that goes through the web view only when it has a formula in it. Most hints and short answers are plain Hebrew, and those are
+/// drawn by SwiftUI itself (instant, selectable, no web view to start up).
+struct RichText: View {
+    let text: String
+    var font: Font = .heebo(16, 600)
+    var color: Color = Theme.ink
+
+    var body: some View {
+        if text.contains("$") {
+            MathText(text: text)
+        } else {
+            Text(Self.attributed(text)).font(font).foregroundStyle(color)
+                .lineSpacing(4).multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// **bold** and line breaks, nothing else.
+    static func attributed(_ raw: String) -> AttributedString {
+        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        return (try? AttributedString(markdown: raw, options: options)) ?? AttributedString(raw)
+    }
+}

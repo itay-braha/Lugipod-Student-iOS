@@ -82,16 +82,17 @@ jobs:
           }
           shoot 01-login login portrait
           shoot 02-login-code login-code portrait
-          shoot 03-login-email login-email portrait
-          shoot 04-home home portrait
-          shoot 05-home-done home-done portrait
-          shoot 06-lugichat lugichat portrait
-          shoot 07-lugichat-thread lugichat-thread portrait
-          shoot 08-lugichat-limit lugichat-limit portrait
-          shoot 09-alerts alerts portrait
-          shoot 11-daily daily portrait
-          shoot 12-daily-answered daily-answered portrait
-          shoot 10-more more portrait
+          shoot 03-home home portrait
+          shoot 04-home-parent home-parent portrait
+          shoot 05-group group portrait
+          shoot 06-ask ask portrait
+          shoot 07-lugichat lugichat portrait
+          shoot 08-lugichat-thread lugichat-thread portrait
+          shoot 09-lugichat-limit lugichat-limit portrait
+          shoot 10-daily daily portrait
+          shoot 11-daily-answered daily-answered portrait
+          shoot 12-alerts alerts portrait
+          shoot 13-more more portrait
           ls -la shots
 
       - uses: actions/upload-artifact@v4
@@ -99,6 +100,45 @@ jobs:
         with:
           name: screens-${{ github.run_number }}
           path: shots
+          if-no-files-found: ignore
+
+      # The same build on an iPad simulator: the app must fill the whole screen and lay out for the bigger canvas.
+      - name: Screenshots (iPad)
+        if: always()
+        run: |
+          mkdir -p shots-ipad
+          APP=ios/.derived/Build/Products/Debug-iphonesimulator/LugipodStudent.app
+          if [ ! -d "$APP" ]; then echo "no simulator build"; exit 0; fi
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)["devices"]
+          for runtime in sorted((r for r in data if "iOS" in r), reverse=True):
+              pads = [d for d in data[runtime] if d["name"].startswith("iPad")]
+              if pads:
+                  print(pads[0]["udid"]); break
+          ')
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+          BUNDLE=com.itaybraha.lugipod
+          shoot() {
+            xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
+            SIMCTL_CHILD_LUGIPOD_PREVIEW="$2" xcrun simctl launch "$UDID" "$BUNDLE" >/dev/null
+            sleep 7
+            xcrun simctl io "$UDID" screenshot "shots-ipad/$1.png"
+          }
+          shoot ipad-home home
+          shoot ipad-group group
+          shoot ipad-lugichat-thread lugichat-thread
+          shoot ipad-daily-answered daily-answered
+          shoot ipad-login login
+          ls -la shots-ipad
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-ipad-${{ github.run_number }}
+          path: shots-ipad
           if-no-files-found: ignore
 
       # Same archive the TestFlight workflow makes, minus signing: proves the Release build compiles and embeds the

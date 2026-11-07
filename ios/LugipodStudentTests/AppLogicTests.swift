@@ -18,20 +18,53 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(AppRouter.destination(for: "//evil.example"), .tab(.home))
     }
 
-    func testHomeDecodes() throws {
+    func testHomeDecodesGroupsWithEverythingTheCardShows() throws {
         let data = PreviewMode.response(method: "GET", path: "/api/native/student/home")
         let home = try API.decoder.decode(StudentHome.self, from: data)
-        XCTAssertEqual(home.lessons.count, 3)
-        XCTAssertEqual(home.lessons.first?.phase, .live)
+        XCTAssertEqual(home.groups.count, 4)
+        let math = try XCTUnwrap(home.groups.first)
+        XCTAssertEqual(math.teacher, "איתי")
+        XCTAssertEqual(math.mates.count, 3)
+        XCTAssertEqual(math.homework.first?.isDone, false)
+        XCTAssertEqual(math.myQuestions, 1)
+        XCTAssertEqual(home.groups[1].homework.first?.isDone, true)
+        XCTAssertEqual(home.consumption.capLugis, 12)
+        XCTAssertFalse(home.family.hasParent)
         XCTAssertEqual(home.lugichat?.freeLeft, 14)
-        XCTAssertEqual(home.subjects.filter(\.mine).count, 2)
         XCTAssertEqual(home.dailyChallenge.streak, 6)
     }
 
-    func testQuotaDecodesWithMissingFields() throws {
-        let q = try API.decoder.decode(Quota.self, from: Data("{\"free_left\":3}".utf8))
-        XCTAssertEqual(q.freeLeft, 3)
-        XCTAssertNil(q.packLeft)
+    func testLessonPhaseIsComputedOnTheDevice() throws {
+        let home = try API.decoder.decode(StudentHome.self, from: PreviewMode.response(method: "GET", path: "/api/native/student/home"))
+        let live = try XCTUnwrap(home.groups.first?.upcoming.first)
+        XCTAssertEqual(live.phase(), .live)                                                       // started five minutes ago
+        XCTAssertEqual(live.phase(now: live.scheduledAt.addingTimeInterval(-20 * 60)), .upcoming) // 20 minutes before
+        XCTAssertEqual(live.phase(now: live.scheduledAt.addingTimeInterval(-10 * 60)), .live)     // joinable from 15 minutes before
+        XCTAssertEqual(live.phase(now: live.scheduledAt.addingTimeInterval(3 * 3600)), .ended)
+    }
+
+    func testGroupDetailDecodes() throws {
+        let detail = try API.decoder.decode(GroupDetail.self, from: PreviewMode.response(method: "GET", path: "/api/native/student/group/g1"))
+        XCTAssertEqual(detail.past.count, 3)
+        XCTAssertEqual(detail.past.last?.attended, false)
+        XCTAssertEqual(detail.upcoming.count, 3)
+        XCTAssertEqual(detail.questions.count, 1)
+    }
+
+    func testQuotaOnlyWarnsWhenLow() throws {
+        let q = try API.decoder.decode(Quota.self, from: Data("{\"free_left\":3,\"pack_left\":0}".utf8))
+        XCTAssertEqual(q.remaining, 3)
+        XCTAssertNil(try API.decoder.decode(Quota.self, from: Data("{}".utf8)).remaining)
+        let model = LugichatModel()
+        XCTAssertNil(model.runningLow)                    // nothing known yet: say nothing
+    }
+
+    func testGreetingChangesWithTheSeedAndNeverMentionsLimits() {
+        let model = LugichatModel()
+        let line = model.greeting(name: "נועה כהן")
+        XCTAssertFalse(line.isEmpty)
+        XCTAssertFalse(line.contains("20"))
+        XCTAssertFalse(line.contains("תשובות"))
     }
 
     func testMathPageEscapesAndKeepsFormulas() {
@@ -51,14 +84,32 @@ final class AppLogicTests: XCTestCase {
         XCTAssertLessThan(b64.count, 6_000_000)
     }
 
-    func testDailyPayloadAndAnswerDecode() throws {
+    func testDailyPayloadCarriesAnswersForInstantFeedback() throws {
         let daily = try API.decoder.decode(DailyPayload.self, from: PreviewMode.response(method: "GET", path: "/api/native/student/daily"))
         XCTAssertEqual(daily.questions.count, 2)
         XCTAssertEqual(daily.questions.first?.choices.count, 4)
+        XCTAssertEqual(daily.questions.first?.answerIndex, 1)
         XCTAssertEqual(daily.subject?.name, "פיזיקה")
-        let answer = try API.decoder.decode(DailyAnswer.self, from: PreviewMode.response(method: "POST", path: "/api/native/student/daily/answer"))
-        XCTAssertEqual(answer.answerIndex, 1)
-        XCTAssertFalse(answer.correct)
-        XCTAssertEqual(answer.streak, 6)
+    }
+
+    func testDailyModelAnswersInstantly() async throws {
+        let model = DailyModel()
+        await model.load()
+        XCTAssertEqual(model.phase, .ready)
+        let q = try XCTUnwrap(model.question)
+        model.pick(q.answerIndex)                                // no await: the result is there at once
+        XCTAssertEqual(model.result?.correct, true)
+        XCTAssertEqual(model.correctCount, 1)
+        model.next()
+        let q2 = try XCTUnwrap(model.question)
+        model.pick((q2.answerIndex + 1) % q2.choices.count)
+        XCTAssertEqual(model.result?.correct, false)
+        model.next()
+        XCTAssertEqual(model.phase, .finished)
+    }
+
+    func testHebrewMonthLabel() {
+        XCTAssertEqual(HebrewDate.monthYear("2026-11"), "נובמבר 2026")
+        XCTAssertEqual(HebrewDate.monthYear(nil), "")
     }
 }
