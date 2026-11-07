@@ -67,6 +67,7 @@ enum PreviewMode {
 
     private static func home() -> String {
         let parent = screen == "home-parent" ? "true" : "false"
+        let limit = screen == "home-limit"
         return """
         {"student":{"id":"s1","name":"נועה כהן"},
          "groups":[
@@ -88,7 +89,7 @@ enum PreviewMode {
            "last":null,"homework":[],"pastCount":0,"myQuestions":0}],
          "badge":{"title":{"emoji":"🚀","label":"חוקר מכניקה","rarity":"rare"},"avatar":"🦊","frame":"frame_violet"},
          "points":{"level":"להבה","balance":340,"lifetime":560,"nextLevelAt":500,"missionsOpen":2},
-         "consumption":{"period":"2026-11","consumedLugis":(screen == "home-limit" ? 12 : 7.5),"capLugis":12,"pctUsed":62,"uncapped":false,"limitReached":(screen == "home-limit" ? "true" : "false")},
+         "consumption":{"period":"2026-11","consumedLugis":\(limit ? "12" : "7.5"),"capLugis":12,"pctUsed":62,"uncapped":false,"limitReached":\(limit ? "true" : "false")},
          "family":{"hasParent":\(parent)},
          "dailyChallenge":{"doneToday":false,"streak":6},
          "lugichat":{"free_left":14,"free_per_day":20,"pack_left":0,"can_ask":true},
