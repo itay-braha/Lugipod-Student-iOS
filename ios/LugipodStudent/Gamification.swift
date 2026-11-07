@@ -64,6 +64,7 @@ struct TitleChip: View {
         }()
         Text("\(title.emoji) \(title.label)")
             .font(.heebo(12, 800)).foregroundStyle(fg)
+            .lineLimit(1).fixedSize()
             .padding(.horizontal, 10).padding(.vertical, 3)
             .background(bg, in: Capsule())
     }
@@ -94,6 +95,9 @@ final class CelebrationCenter: ObservableObject {
         let item = Fox(title: title, subtitle: subtitle, pose: pose, big: big)
         fox = item
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #if DEBUG
+        if PreviewMode.isOn { return }   // screenshots: leave it on screen
+        #endif
         Task {
             try? await Task.sleep(nanoseconds: big ? 2_800_000_000 : 1_900_000_000)
             if fox?.id == item.id { fox = nil }
@@ -105,6 +109,9 @@ final class CelebrationCenter: ObservableObject {
         let item = Coins(text: text)
         coins = item
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #if DEBUG
+        if PreviewMode.isOn { return }
+        #endif
         Task {
             try? await Task.sleep(nanoseconds: 2_200_000_000)
             if coins?.id == item.id { coins = nil }
