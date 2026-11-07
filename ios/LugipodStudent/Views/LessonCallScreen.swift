@@ -66,8 +66,10 @@ struct LessonCallScreen: View {
                     .shadow(color: .black.opacity(showPanel ? 0.35 : 0), radius: 14)
                 }
                 .environment(\.layoutDirection, .leftToRight)
+                .opacity(showPanel ? 1 : 0)          // stays loaded, but never peeks in at an edge (e.g. while the screen is still turning)
                 .allowsHitTesting(showPanel)
             }
+            .clipped()
         }
         .overlay {
             if let left, let meeting {
