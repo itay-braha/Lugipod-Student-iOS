@@ -45,6 +45,7 @@ struct MoreView: View {
             }
         }
         .scrollIndicators(.hidden)
+        .ignoresSafeArea(edges: .top)
         .background(ScreenBackground())
         #if DEBUG
         .onAppear { if PreviewMode.screen == "availability" { showAvailability = true } }
@@ -70,7 +71,7 @@ struct MoreView: View {
             Spacer()
         }
         .frame(maxWidth: 560)
-        .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 24)
+        .padding(.horizontal, 20).padding(.top, ScreenInsets.top + 14).padding(.bottom, 24)
         .frame(maxWidth: .infinity)
         .background {
             ZStack {

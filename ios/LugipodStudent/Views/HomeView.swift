@@ -38,6 +38,7 @@ struct HomeView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .ignoresSafeArea(edges: .top)
             .background(ScreenBackground())
             .refreshable { await model.load(); await inbox.load() }
             .navigationDestination(for: HomeRoute.self) { route in
@@ -83,7 +84,7 @@ struct HomeView: View {
             if let c = model.data?.consumption, c.limitReached == true { limitBanner }
         }
         .frame(maxWidth: 720, alignment: .leading)
-        .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 26)
+        .padding(.horizontal, 20).padding(.top, ScreenInsets.top + 12).padding(.bottom, 26)
         .frame(maxWidth: .infinity)
         .background {
             // The indigo block runs up under the status bar; its content stays below it.
@@ -103,7 +104,7 @@ struct HomeView: View {
             AvatarView(name: model.data?.student.name ?? "", avatar: model.data?.badge?.avatar, frame: model.data?.badge?.frame, size: 58)
                 .overlay(RoundedRectangle(cornerRadius: 58 * 0.32, style: .continuous).strokeBorder(.white.opacity(0.9), lineWidth: 2.5))
             VStack(alignment: .leading, spacing: 5) {
-                Text(firstName.isEmpty ? "שלום 👋" : "שלום, \(firstName) 👋").font(.heebo(25, 900)).foregroundStyle(.white).lineLimit(1)
+                Text(firstName.isEmpty ? "שלום" : "שלום, \(firstName)").font(.heebo(23, 900)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.8)
                 HStack(spacing: 6) {
                     if let title = model.data?.badge?.title { TitleChip(title: title) }
                     if let level = model.data?.points?.level {
