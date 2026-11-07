@@ -95,7 +95,8 @@ enum HebrewDate {
 
     /// "17:30–19:00"
     static func timeRange(_ start: Date, minutes: Int) -> String {
-        "\(time(start))–\(time(start.addingTimeInterval(Double(minutes) * 60)))"
+        // Wrapped in an LTR isolate, otherwise the Hebrew layout prints the two times in reverse order.
+        "\u{2066}\(time(start))–\(time(start.addingTimeInterval(Double(minutes) * 60)))\u{2069}"
     }
 
     /// "היום", "מחר", or the weekday and date.

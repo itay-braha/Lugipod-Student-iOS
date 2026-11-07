@@ -46,7 +46,7 @@ struct HomeView: View {
                         .font(.heebo(28, 800)).foregroundStyle(.white)
                     HStack(spacing: 8) {
                         if let streak = model.data?.dailyChallenge.streak, streak > 0 {
-                            chip("🔥 \(streak) ימים ברצף") {}
+                            chip("🔥 \(streak) ימים") {}
                         }
                         chip(inbox.unread > 0 ? "🔔 \(inbox.unread) חדשות" : "🔔 התראות") { router.showAlerts = true }
                     }

@@ -20,6 +20,8 @@ enum MathHTML {
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
         s = s.replacingOccurrences(of: "\\*\\*(.+?)\\*\\*", with: "<b>$1</b>", options: .regularExpression)
+        // A display formula is a block of its own: the blank lines around it would only add empty space.
+        s = s.replacingOccurrences(of: "\\s*(\\$\\$[\\s\\S]+?\\$\\$)\\s*", with: "$1", options: .regularExpression)
         s = s.replacingOccurrences(of: "\n", with: "<br>")
         return """
         <!doctype html><html dir="rtl" lang="he"><head>
@@ -28,7 +30,7 @@ enum MathHTML {
         <style>
           html,body{margin:0;padding:0;background:transparent}
           body{font:16px/1.6 -apple-system,"Heebo",sans-serif;color:#0F172A;word-wrap:break-word;overflow-wrap:anywhere}
-          .katex{font-size:1.05em}
+          .katex{font-size:1.05em;direction:ltr;unicode-bidi:isolate}
           .katex-display{margin:.5em 0;overflow-x:auto;overflow-y:hidden}
         </style></head><body><div id="c">\(s)</div>
         <script src="katex/katex.min.js"></script><script src="katex/auto-render.min.js"></script>
