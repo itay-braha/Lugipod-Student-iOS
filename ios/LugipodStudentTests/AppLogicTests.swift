@@ -1,6 +1,7 @@
 import XCTest
 @testable import LugipodStudent
 
+@MainActor
 final class AppLogicTests: XCTestCase {
     func testPhoneFormatting() {
         XCTAssertEqual(Phone.format("0501234567"), "050-123-4567")
