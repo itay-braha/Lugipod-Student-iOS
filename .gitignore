@@ -1,0 +1,10 @@
+ios/LugipodStudent.xcodeproj/
+ios/.derived/
+ios/.spm/
+ios/.build/
+xcuserdata/
+*.xcuserstate
+DerivedData/
+.DS_Store
+Thumbs.db
+ios/Config/Secrets.xcconfig

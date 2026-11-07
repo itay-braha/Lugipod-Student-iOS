@@ -1,0 +1,154 @@
+name: TestFlight
+
+# Manual, plus a scheduled refresh every other month: archives a Release build (the student iPhone app), signs it in the
+# cloud with the App Store Connect API key, and uploads it to TestFlight.
+#
+# Repository secrets (Settings > Secrets and variables > Actions):
+#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8   App Store Connect API key (Admin role, .p8 contents)
+#   APPLE_TEAM_ID                           10-character team ID
+on:
+  workflow_dispatch:
+  # TestFlight builds expire after 90 days: a fresh one on the 1st of every other month keeps the app alive.
+  schedule:
+    - cron: "0 6 1 */2 *"
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app
+
+jobs:
+  upload:
+    name: Archive and upload
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check secrets
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SUPABASE_PROJECT_HOST: ${{ secrets.SUPABASE_PROJECT_HOST }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          missing=0
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 APPLE_TEAM_ID SUPABASE_PROJECT_HOST SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::Missing secret $name"; missing=1; fi
+          done
+          exit $missing
+
+      - name: Select Xcode
+        run: sudo xcode-select -s "$XCODE_APP" && xcodebuild -version
+
+      - name: Write key
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          SUPABASE_PROJECT_HOST: ${{ secrets.SUPABASE_PROJECT_HOST }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          printf "SUPABASE_PROJECT_HOST = %s\nSUPABASE_PUBLISHABLE_KEY = %s\n" "$SUPABASE_PROJECT_HOST" "$SUPABASE_PUBLISHABLE_KEY" > ios/Config/Secrets.xcconfig
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: ios/.spm
+          key: spm-${{ runner.os }}-${{ hashFiles('ios/project.yml') }}
+
+      - name: Archive
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -o pipefail
+          # Every upload needs a new build number: the run number keeps rising.
+          BUILD=$((100 + ${{ github.run_number }}))
+          echo "Build number $BUILD"
+          xcodebuild archive \
+            -project ios/LugipodStudent.xcodeproj \
+            -scheme LugipodStudent \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/LugipodStudent.xcarchive" \
+            -clonedSourcePackagesDirPath ios/.spm \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION="$BUILD" \
+            > archive.log 2>&1 || { grep -E "error:|warning: .*(sign|provision)" -A3 archive.log | head -120; exit 1; }
+          grep -E "\*\* ARCHIVE" archive.log
+
+      - name: Upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$APPLE_TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/LugipodStudent.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            > export.log 2>&1 || { grep -E "error|Error" -A3 export.log | head -120; exit 1; }
+          tail -5 export.log
+          echo "Uploaded. It shows up in App Store Connect > TestFlight after Apple finishes processing (5-30 min)."
+
+      # Automatic signing on a fresh runner mints a new development certificate on EVERY run, and Apple caps
+      # how many an account may hold ("reached the maximum number of certificates"). This removes only the
+      # certificates THIS run created (matched by fingerprint to this runner's keychain), so a certificate
+      # made by another run or project is never touched. It cannot fail the job.
+      - name: Remove the certificates this run created
+        if: always()
+        continue-on-error: true
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: ASC_KEY_PATH="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" node .github/scripts/revoke-own-certs.mjs || true
+
+      - name: Remove key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys" ios/Config/Secrets.xcconfig
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: testflight-logs-${{ github.run_number }}
+          path: |
+            archive.log
+            export.log
+          if-no-files-found: ignore

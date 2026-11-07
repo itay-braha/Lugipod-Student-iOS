@@ -1,0 +1,9 @@
+// Shared build settings. xcconfig treats "//" as a comment, so hosts are stored
+// without the scheme and the app prepends https://.
+// Real Supabase values come from Secrets.xcconfig (git-ignored; the TestFlight
+// workflow writes it from repository secrets). Without it the app shows a setup screen.
+LUGIPOD_BASE_URL = lugipod.com
+SUPABASE_PROJECT_HOST =
+SUPABASE_PUBLISHABLE_KEY =
+
+#include? "Secrets.xcconfig"

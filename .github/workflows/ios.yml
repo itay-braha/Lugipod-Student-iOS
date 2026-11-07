@@ -1,0 +1,119 @@
+name: iOS
+
+# Builds the student app for the simulator and runs the unit tests.
+# (Free on a public repo.) Camera, push and the live lesson need a real iPhone: see README.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app
+
+jobs:
+  build-test:
+    name: Build and test
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Select Xcode
+        run: sudo xcode-select -s "$XCODE_APP" && xcodebuild -version
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: ios/.spm
+          key: spm-${{ runner.os }}-${{ hashFiles('ios/project.yml') }}
+
+      - name: Pick and boot simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)["devices"]
+          runtimes = sorted((r for r in data if "iOS" in r), reverse=True)
+          for runtime in runtimes:
+              phones = [d for d in data[runtime] if d["name"].startswith("iPhone")]
+              if phones:
+                  print(phones[0]["udid"]); break
+          ')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Build and test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project ios/LugipodStudent.xcodeproj -scheme LugipodStudent \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath ios/.derived -clonedSourcePackagesDirPath ios/.spm \
+            -skipMacroValidation -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO \
+            > test.log 2>&1 || { grep -E "error:|\*\* (BUILD|TEST)|failed" test.log | tail -80; exit 1; }
+          grep -E "Test Suite|\*\* TEST" test.log | tail -15
+
+      # Photographs every screen in the iPhone simulator, using the DEBUG-only preview mode (sample
+      # data, no sign-in), so the design can be reviewed without a device. See PreviewMode.swift.
+      - name: Screenshots
+        if: always()
+        run: |
+          mkdir -p shots
+          APP=ios/.derived/Build/Products/Debug-iphonesimulator/LugipodStudent.app
+          if [ ! -d "$APP" ]; then echo "no simulator build to photograph"; exit 0; fi
+          UDID=${{ steps.sim.outputs.udid }}
+          BUNDLE=com.itaybraha.lugipod
+          xcrun simctl install "$UDID" "$APP"
+          shoot() {
+            xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
+            SIMCTL_CHILD_LUGIPOD_PREVIEW="$2" SIMCTL_CHILD_LUGIPOD_ORIENT="$3" xcrun simctl launch "$UDID" "$BUNDLE" >/dev/null
+            sleep 7
+            xcrun simctl io "$UDID" screenshot "shots/$1.png"
+          }
+          shoot 01-login login portrait
+          shoot 02-login-code login-code portrait
+          shoot 03-login-email login-email portrait
+          shoot 04-home home portrait
+          shoot 05-home-done home-done portrait
+          shoot 06-lugichat lugichat portrait
+          shoot 07-lugichat-thread lugichat-thread portrait
+          shoot 08-lugichat-limit lugichat-limit portrait
+          shoot 09-alerts alerts portrait
+          shoot 10-more more portrait
+          ls -la shots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-${{ github.run_number }}
+          path: shots
+          if-no-files-found: ignore
+
+      # Same archive the TestFlight workflow makes, minus signing: proves the Release build compiles and embeds the
+      # privacy manifest and the bundled KaTeX.
+      - name: Release archive (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild archive             -project ios/LugipodStudent.xcodeproj -scheme LugipodStudent             -configuration Release -destination "generic/platform=iOS"             -archivePath "$RUNNER_TEMP/App.xcarchive" -clonedSourcePackagesDirPath ios/.spm             -skipMacroValidation -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO             > archive.log 2>&1 || { grep -E "error:" archive.log | tail -40; exit 1; }
+          APP="$RUNNER_TEMP/App.xcarchive/Products/Applications/LugipodStudent.app"
+          test -f "$APP/PrivacyInfo.xcprivacy" || { echo "::error::privacy manifest missing"; exit 1; }
+          test -f "$APP/katex/katex.min.js" || { echo "::error::KaTeX not bundled"; exit 1; }
+          echo "archive ok: privacy manifest present, KaTeX bundled"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: logs-${{ github.run_number }}
+          path: |
+            test.log
+            archive.log
