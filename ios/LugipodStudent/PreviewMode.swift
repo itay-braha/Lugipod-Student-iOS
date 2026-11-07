@@ -14,6 +14,7 @@ enum PreviewMode {
         switch screen {
         case "home", "home-done", "alerts": return .home
         case "lugichat", "lugichat-thread", "lugichat-limit": return .lugichat
+        case "daily", "daily-answered": return .practice
         case "more": return .more
         default: return nil
         }
@@ -38,8 +39,12 @@ enum PreviewMode {
     // MARK: Sample server responses
 
     static func response(method: String, path: String) -> Data {
+        if path.hasPrefix("/api/native/student/daily/answer") {
+            return Data("{\"correct\":false,\"answerIndex\":1,\"explanation\":\"הנוסחה היא $v = v_0 + at$. מציבים $v_0 = 0$, $a = 2$, $t = 5$ ומקבלים $v = 10\\\\ \\\\text{m/s}$.\",\"streak\":6}".utf8)
+        }
         if method != "GET" { return Data("{\"ok\":true}".utf8) }
         let json: String
+        if path.hasPrefix("/api/native/student/daily") { return Data(daily().utf8) }
         if path.hasPrefix("/api/native/student/home") { json = home(done: screen == "home-done") }
         else if path.hasPrefix("/api/native/alerts") { json = alerts() }
         else { json = "{}" }
@@ -64,6 +69,14 @@ enum PreviewMode {
          "lugichat":{"free_left":14,"free_per_day":20,"pack_left":0,"can_ask":true},
          "subjects":[{"id":"sub1","name":"מתמטיקה","mine":true},{"id":"sub2","name":"פיזיקה","mine":true},{"id":"sub3","name":"מדעי המחשב","mine":false}],
          "unreadAlerts":2}
+        """
+    }
+
+    private static func daily() -> String {
+        """
+        {"subject":{"id":"sub1","name":"פיזיקה"},"level":"5 יח״ל","doneToday":false,"streak":6,
+         "questions":[{"id":"q1","prompt":"גוף יוצא ממנוחה ומאיץ בתאוצה קבועה של $2\\\\ \\\\text{m/s}^2$. מה מהירותו אחרי $5$ שניות?","choices":["$5\\\\ \\\\text{m/s}$","$10\\\\ \\\\text{m/s}$","$25\\\\ \\\\text{m/s}$","$50\\\\ \\\\text{m/s}$"]},
+                     {"id":"q2","prompt":"מהו כוח הנורמל על ספר במנוחה על שולחן?","choices":["שווה למשקל הספר","גדול ממשקל הספר","אפס","תלוי בצבע השולחן"]}]}
         """
     }
 

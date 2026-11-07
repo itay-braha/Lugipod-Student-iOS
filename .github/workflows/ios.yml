@@ -89,6 +89,8 @@ jobs:
           shoot 07-lugichat-thread lugichat-thread portrait
           shoot 08-lugichat-limit lugichat-limit portrait
           shoot 09-alerts alerts portrait
+          shoot 11-daily daily portrait
+          shoot 12-daily-answered daily-answered portrait
           shoot 10-more more portrait
           ls -la shots
 

@@ -79,7 +79,7 @@ struct MainTabView: View {
             LugichatView()
                 .tabItem { Label("לוגיצ׳אט", systemImage: "camera.viewfinder") }
                 .tag(AppRouter.Tab.lugichat)
-            WebScreen(path: "/dashboard", showsClose: false)
+            DailyChallengeView()
                 .tabItem { Label("תרגול", systemImage: "flame.fill") }
                 .tag(AppRouter.Tab.practice)
             MoreView()

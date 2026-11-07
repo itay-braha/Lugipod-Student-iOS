@@ -50,4 +50,15 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(max(decoded?.size.width ?? 0, decoded?.size.height ?? 0), 1600)
         XCTAssertLessThan(b64.count, 6_000_000)
     }
+
+    func testDailyPayloadAndAnswerDecode() throws {
+        let daily = try API.decoder.decode(DailyPayload.self, from: PreviewMode.response(method: "GET", path: "/api/native/student/daily"))
+        XCTAssertEqual(daily.questions.count, 2)
+        XCTAssertEqual(daily.questions.first?.choices.count, 4)
+        XCTAssertEqual(daily.subject?.name, "פיזיקה")
+        let answer = try API.decoder.decode(DailyAnswer.self, from: PreviewMode.response(method: "POST", path: "/api/native/student/daily/answer"))
+        XCTAssertEqual(answer.answerIndex, 1)
+        XCTAssertFalse(answer.correct)
+        XCTAssertEqual(answer.streak, 6)
+    }
 }
