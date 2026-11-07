@@ -1,18 +1,24 @@
 import SwiftUI
 
-/// Per-subject colours and icon, so a glance at a card says which subject it is.
+/// Per-subject colours and icon, so a glance at a card says which subject it is. Bold on purpose: the card's header is the subject's own colour.
 struct SubjectTint {
     let fg: Color
     let bg: Color
     let accent: Color
     let icon: String
+    let gradient: LinearGradient
+
+    private static func make(_ fg: Color, _ bg: Color, _ accent: Color, _ icon: String, _ a: UInt32, _ b: UInt32) -> SubjectTint {
+        SubjectTint(fg: fg, bg: bg, accent: accent, icon: icon,
+                    gradient: LinearGradient(colors: [Color(hex: a), Color(hex: b)], startPoint: .topLeading, endPoint: .bottomTrailing))
+    }
 
     static func of(_ subject: String) -> SubjectTint {
-        if subject.contains("פיזיקה") { return SubjectTint(fg: Theme.sky800, bg: Theme.sky50, accent: Color(hex: 0x0EA5E9), icon: "atom") }
-        if subject.contains("מחשב") { return SubjectTint(fg: Theme.violet700, bg: Theme.violet50, accent: Theme.violet500, icon: "chevron.left.forwardslash.chevron.right") }
-        if subject.contains("כימיה") { return SubjectTint(fg: Theme.emerald700, bg: Theme.emerald50, accent: Theme.emerald500, icon: "flask.fill") }
-        if subject.contains("מתמטיקה") { return SubjectTint(fg: Theme.brand700, bg: Theme.brand50, accent: Theme.brand500, icon: "function") }
-        return SubjectTint(fg: Theme.brand700, bg: Theme.brand50, accent: Theme.brand500, icon: "book.fill")
+        if subject.contains("פיזיקה") { return make(Theme.sky800, Theme.sky50, Color(hex: 0x0EA5E9), "atom", 0x0369A1, 0x0EA5E9) }
+        if subject.contains("מחשב") { return make(Theme.violet700, Theme.violet50, Theme.violet500, "chevron.left.forwardslash.chevron.right", 0x6D28D9, 0xC026D3) }
+        if subject.contains("כימיה") { return make(Theme.emerald700, Theme.emerald50, Theme.emerald500, "flask.fill", 0x047857, 0x14B8A6) }
+        if subject.contains("מתמטיקה") { return make(Theme.brand700, Theme.brand50, Theme.brand500, "function", 0x3730A3, 0x6366F1) }
+        return make(Theme.brand700, Theme.brand50, Theme.brand500, "book.fill", 0x3730A3, 0x6366F1)
     }
 }
 
@@ -35,64 +41,64 @@ struct GroupCard: View {
         let tint = SubjectTint.of(group.subject)
         let next = group.nextLesson(now: now)
         let live = next?.phase(now: now) == .live
-        return VStack(alignment: .leading, spacing: 14) {
+        return VStack(spacing: 0) {
+            // The subject's colour, as a solid header with white text.
             HStack(alignment: .center, spacing: 12) {
-                Image(systemName: tint.icon).font(.system(size: 20, weight: .bold)).foregroundStyle(tint.fg)
-                    .frame(width: 48, height: 48)
-                    .background(tint.bg, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                Image(systemName: tint.icon).font(.system(size: 20, weight: .bold)).foregroundStyle(.white)
+                    .frame(width: 46, height: 46)
+                    .background(Color.white.opacity(0.2), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(group.title).font(.heebo(18, 800)).foregroundStyle(Theme.ink).lineLimit(2)
+                    Text(group.title).font(.heebo(18, 800)).foregroundStyle(.white).lineLimit(2)
                     if let teacher = group.teacher {
-                        Label("עם \(teacher)", systemImage: "person.fill").font(.heebo(13, 600)).foregroundStyle(Theme.slate600)
-                            .labelStyle(.titleAndIcon)
+                        Label("עם \(teacher)", systemImage: "person.fill").font(.heebo(13, 700)).foregroundStyle(.white.opacity(0.9))
                     }
                 }
                 Spacer(minLength: 0)
+                if live { Text("● חי").font(.heebo(12, 900)).foregroundStyle(.white).padding(.horizontal, 10).padding(.vertical, 4).background(Theme.emerald500, in: Capsule()) }
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(tint.gradient)
 
-            if !group.mates.isEmpty {
-                HStack(spacing: 8) {
-                    Image(systemName: "person.2.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(tint.accent)
-                    Text(group.mates.joined(separator: ", ")).font(.heebo(13, 600)).foregroundStyle(Theme.slate600).lineLimit(1)
+            VStack(alignment: .leading, spacing: 14) {
+                if !group.mates.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "person.2.fill").font(.system(size: 13, weight: .bold)).foregroundStyle(tint.accent)
+                        Text(group.mates.joined(separator: ", ")).font(.heebo(14, 700)).foregroundStyle(Theme.slate700).lineLimit(1)
+                    }
                 }
+                nextLessonRow(next: next, live: live, now: now)
+                homeworkRow
+                actions(tint: tint)
             }
-
-            nextLessonRow(next: next, live: live, now: now, tint: tint)
-            homeworkRow
-            actions(tint: tint)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background {
-            // White card with the subject colour as a bar along the top edge, clipped to the card's own rounded corners.
-            ZStack(alignment: .top) {
-                Color.white
-                tint.accent.frame(height: 5)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        }
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(live ? Theme.emerald500 : Theme.slate200, lineWidth: live ? 2 : 1))
-        .shadow(color: Theme.shadowSoft1, radius: 1, y: 1)
-        .shadow(color: Theme.shadowSoft2, radius: 8, y: 4)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(live ? Theme.emerald500 : tint.accent.opacity(0.35), lineWidth: live ? 3 : 1.5))
+        .shadow(color: tint.accent.opacity(0.22), radius: 12, y: 6)
     }
 
     @ViewBuilder
-    private func nextLessonRow(next: StudentHome.Lesson?, live: Bool, now: Date, tint: SubjectTint) -> some View {
+    private func nextLessonRow(next: StudentHome.Lesson?, live: Bool, now: Date) -> some View {
         if let next {
             HStack(spacing: 12) {
+                // The date, in the warm colours: orange normally, green when the lesson is on.
                 VStack(spacing: 0) {
-                    Text(HebrewDate.dayNumber(next.scheduledAt)).font(.heebo(20, 800))
-                    Text(HebrewDate.weekday(next.scheduledAt)).font(.heebo(11, 700))
+                    Text(HebrewDate.dayNumber(next.scheduledAt)).font(.heebo(23, 900))
+                    Text(HebrewDate.weekday(next.scheduledAt)).font(.heebo(11, 800))
                 }
-                .foregroundStyle(live ? Theme.emerald700 : Theme.amber800)
-                .frame(width: 54, height: 54)
-                .background(live ? Theme.emerald100 : Theme.amber100, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                .foregroundStyle(.white)
+                .frame(width: 58, height: 58)
+                .background(live ? AnyShapeStyle(Theme.emerald600) : AnyShapeStyle(Theme.cta), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+                .shadow(color: (live ? Theme.emerald600 : Theme.orange600).opacity(0.35), radius: 6, y: 3)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(live ? "השיעור מתקיים עכשיו" : (next.extra ? "שיעור נוסף" : "השיעור הבא"))
-                        .font(.heebo(12, 700)).foregroundStyle(live ? Theme.emerald700 : Theme.slate500)
-                    Text(HebrewDate.timeRange(next.scheduledAt, minutes: next.durationMin)).font(.heebo(17, 800)).foregroundStyle(Theme.ink)
+                        .font(.heebo(12, 800)).foregroundStyle(live ? Theme.emerald700 : Theme.orange600)
+                    Text(HebrewDate.timeRange(next.scheduledAt, minutes: next.durationMin)).font(.heebo(18, 900)).foregroundStyle(Theme.ink)
                     Text(live ? HebrewDate.dayLabel(next.scheduledAt) : "\(HebrewDate.dayLabel(next.scheduledAt)) · \(HebrewDate.relative(next.scheduledAt, now: now))")
-                        .font(.heebo(12, 500)).foregroundStyle(Theme.slate500)
+                        .font(.heebo(12, 600)).foregroundStyle(Theme.slate500)
                 }
                 Spacer(minLength: 6)
                 if live {
@@ -110,19 +116,19 @@ struct GroupCard: View {
         Button(action: onHomework) {
             HStack(spacing: 10) {
                 if let open {
-                    Image(systemName: "pencil.and.list.clipboard").foregroundStyle(Theme.amber800)
+                    Image(systemName: "pencil.and.list.clipboard").foregroundStyle(Theme.orange600)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("שיעורי בית ממתינים").font(.heebo(12, 700)).foregroundStyle(Theme.amber800)
-                        Text("\(open.title) · \(open.correct)/\(open.total)").font(.heebo(14, 700)).foregroundStyle(Theme.ink).lineLimit(1)
+                        Text("שיעורי בית ממתינים").font(.heebo(12, 800)).foregroundStyle(Theme.orange700)
+                        Text("\(open.title) · \(open.correct)/\(open.total)").font(.heebo(14, 800)).foregroundStyle(Theme.ink).lineLimit(1)
                     }
                 } else if !group.homework.isEmpty {
                     Image(systemName: "checkmark.seal.fill").foregroundStyle(Theme.emerald600)
-                    Text("כל שיעורי הבית הושלמו").font(.heebo(14, 700)).foregroundStyle(Theme.emerald700)
+                    Text("כל שיעורי הבית הושלמו").font(.heebo(14, 800)).foregroundStyle(Theme.emerald700)
                 } else if let text = group.last?.homeworkText, !text.isEmpty {
                     Image(systemName: "pencil.and.list.clipboard").foregroundStyle(Theme.brand600)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("שיעורי בית מהשיעור האחרון").font(.heebo(12, 700)).foregroundStyle(Theme.brand700)
-                        Text(text).font(.heebo(14, 600)).foregroundStyle(Theme.ink).lineLimit(2).multilineTextAlignment(.leading)
+                        Text("שיעורי בית מהשיעור האחרון").font(.heebo(12, 800)).foregroundStyle(Theme.brand700)
+                        Text(text).font(.heebo(14, 700)).foregroundStyle(Theme.ink).lineLimit(2).multilineTextAlignment(.leading)
                     }
                 } else {
                     Image(systemName: "checkmark.circle").foregroundStyle(Theme.slate400)
@@ -132,7 +138,7 @@ struct GroupCard: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(open != nil ? Theme.amber50 : Theme.slate50, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(open != nil ? Theme.orange100 : (group.homework.isEmpty ? Theme.slate50 : Theme.emerald50), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -142,13 +148,13 @@ struct GroupCard: View {
             Button(action: onAsk) {
                 Label(group.myQuestions > 0 ? "שאלה למורה (\(group.myQuestions))" : "שאלה למורה", systemImage: "square.and.pencil")
             }
-            .buttonStyle(SoftButtonStyle(fg: tint.fg, bg: tint.bg))
+            .buttonStyle(SoftButtonStyle(fg: .white, bg: Theme.orange500))
             HStack(spacing: 4) {
                 Text(group.pastCount > 0 ? "שיעורים קודמים (\(group.pastCount))" : "פרטי הקבוצה")
                 Image(systemName: "chevron.left").font(.system(size: 11, weight: .bold))
             }
-            .font(.heebo(14, 700)).foregroundStyle(Theme.slate600)
-            .padding(.horizontal, 10)
+            .font(.heebo(14, 800)).foregroundStyle(tint.fg)
+            .padding(.horizontal, 6)
             Spacer(minLength: 0)
         }
     }

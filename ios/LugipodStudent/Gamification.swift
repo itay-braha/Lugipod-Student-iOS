@@ -199,3 +199,78 @@ private struct CoinBurst: View {
         .onAppear { rise = true }
     }
 }
+
+// MARK: - The lugi coin
+
+/// A gold lugi coin with the fox on it.
+struct FoxCoin: View {
+    var size: CGFloat = 58
+
+    var body: some View {
+        ZStack {
+            Circle().fill(Theme.coin)
+            Circle().strokeBorder(Color(hex: 0xB45309).opacity(0.55), lineWidth: size * 0.05)
+            Circle().strokeBorder(Color.white.opacity(0.55), style: StrokeStyle(lineWidth: size * 0.02, dash: [size * 0.06, size * 0.05])).padding(size * 0.1)
+            Image("Lugi-peek").resizable().scaledToFill()
+                .frame(width: size * 0.66, height: size * 0.66)
+                .clipShape(Circle())
+        }
+        .frame(width: size, height: size)
+        .shadow(color: Theme.gold700.opacity(0.45), radius: size * 0.12, y: size * 0.06)
+        .accessibilityHidden(true)
+    }
+}
+
+/// What THIS student has consumed this month: the gold coin with the fox, and the number next to it. When lugis are spent the number ticks up,
+/// pops, and a few coins fly off the coin. (Only the student's own usage ever appears here, never the family's.)
+struct CoinCounter: View {
+    let value: Double
+    var capLugis: Double?
+    var onDark = true
+    @State private var pop = false
+    @State private var fly = false
+    @State private var delta: Double = 0
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                FoxCoin(size: 62).scaleEffect(pop ? 1.18 : 1).rotationEffect(.degrees(pop ? -8 : 0))
+                ForEach(0..<4, id: \.self) { i in
+                    Text("🪙").font(.system(size: 16))
+                        .offset(x: CGFloat(i - 2) * 14 + 7, y: fly ? -56 - CGFloat(i % 2) * 14 : 0)
+                        .opacity(fly ? 0 : 0.001)
+                        .animation(.easeOut(duration: 1.0).delay(Double(i) * 0.07), value: fly)
+                }
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(format(value)).font(.heebo(34, 900)).foregroundStyle(onDark ? .white : Theme.ink)
+                        .contentTransition(.numericText(value: value))
+                        .scaleEffect(pop ? 1.12 : 1, anchor: .leading)
+                    if let cap = capLugis { Text("/ \(format(cap))").font(.heebo(16, 700)).foregroundStyle(onDark ? .white.opacity(0.75) : Theme.slate500) }
+                }
+                Text("לוגי נוצלו החודש").font(.heebo(13, 700)).foregroundStyle(onDark ? Theme.gold300 : Theme.gold700)
+            }
+            .overlay(alignment: .topLeading) {
+                if pop && delta > 0 {
+                    Text("+\(format(delta))").font(.heebo(16, 900)).foregroundStyle(Theme.gold300)
+                        .offset(x: 80, y: -22).transition(.opacity)
+                }
+            }
+        }
+        .onChange(of: value) { old, new in
+            guard new > old + 0.01 else { return }
+            delta = new - old
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            fly = false
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.45)) { pop = true }
+            DispatchQueue.main.async { fly = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { withAnimation(.easeOut(duration: 0.3)) { pop = false } }
+        }
+        .animation(.easeOut(duration: 0.6), value: value)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("נוצלו \(format(value)) לוגי החודש")
+    }
+
+    private func format(_ v: Double) -> String { v == v.rounded() ? String(Int(v)) : String(format: "%.1f", v) }
+}

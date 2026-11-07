@@ -41,21 +41,27 @@ struct LugichatView: View {
     private var topBar: some View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: "sparkles").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.violet500)
-                Text("לוגיצ׳אט").font(.heebo(22, 800)).foregroundStyle(Theme.ink)
+                Image("Lugi-peek").resizable().scaledToFit().frame(width: 36, height: 36).accessibilityHidden(true)
+                Text("לוגיצ׳אט").font(.heebo(22, 900)).foregroundStyle(.white)
             }
             Spacer()
             if model.hasThread {
                 Button { model.reset(); draft = "" } label: {
                     Image(systemName: "square.and.pencil").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.violet700)
-                        .frame(width: 42, height: 42).background(Theme.violet50, in: Circle())
+                        .frame(width: 42, height: 42).background(Color.white, in: Circle())
                 }
                 .accessibilityLabel("שיחה חדשה")
             }
         }
         .frame(maxWidth: 720)
-        .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 6)
+        .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
         .frame(maxWidth: .infinity)
+        .background {
+            LinearGradient(colors: [Theme.violet700, Theme.brand600, Theme.brand500], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 26, bottomTrailingRadius: 26, style: .continuous))
+                .shadow(color: Theme.violet700.opacity(0.3), radius: 10, y: 5)
+                .ignoresSafeArea(edges: .top)
+        }
     }
 
     // MARK: Empty state
@@ -63,14 +69,16 @@ struct LugichatView: View {
     private var welcome: some View {
         VStack(spacing: 18) {
             Spacer(minLength: 20)
+            // The fox is who they are asking.
+            Lugi(pose: .study, height: 150)
             Text(model.greeting(name: home.data?.student.name ?? ""))
                 .font(.heebo(30, 800)).foregroundStyle(Theme.ink).multilineTextAlignment(.center)
             Text("כתבו שאלה, או צלמו תרגיל. אני מדריך צעד אחר צעד.")
                 .font(.heebo(16, 500)).foregroundStyle(Theme.slate500).multilineTextAlignment(.center)
             VStack(spacing: 10) {
-                if cameraAvailable { suggestion("צילום של תרגיל שתקוע", icon: "camera.fill") { showCamera = true } }
-                suggestion("הסבירו לי נושא", icon: "lightbulb.fill") { draft = "תסבירו לי "; typing = true }
-                suggestion("בדקו לי את הפתרון", icon: "checkmark.seal.fill") { draft = "בדקו לי את הפתרון: "; typing = true }
+                if cameraAvailable { suggestion("צילום של תרגיל שתקוע", icon: "camera.fill", color: Theme.orange500) { showCamera = true } }
+                suggestion("הסבירו לי נושא", icon: "lightbulb.fill", color: Theme.brand600) { draft = "תסבירו לי "; typing = true }
+                suggestion("בדקו לי את הפתרון", icon: "checkmark.seal.fill", color: Theme.emerald600) { draft = "בדקו לי את הפתרון: "; typing = true }
             }
             .frame(maxWidth: 420)
             .padding(.top, 8)
@@ -82,16 +90,19 @@ struct LugichatView: View {
         .onTapGesture { typing = false }
     }
 
-    private func suggestion(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+    private func suggestion(_ title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: icon).font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.violet500)
-                Text(title).font(.heebo(16, 700)).foregroundStyle(Theme.ink)
+                Image(systemName: icon).font(.system(size: 16, weight: .heavy)).foregroundStyle(.white)
+                    .frame(width: 38, height: 38).background(color.gradient, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                Text(title).font(.heebo(16, 800)).foregroundStyle(Theme.ink)
                 Spacer(minLength: 0)
+                Image(systemName: "chevron.left").font(.system(size: 12, weight: .bold)).foregroundStyle(color)
             }
-            .padding(.horizontal, 16).padding(.vertical, 14)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.slate200, lineWidth: 1))
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(color.opacity(0.45), lineWidth: 1.5))
+            .shadow(color: color.opacity(0.18), radius: 6, y: 3)
         }
         .buttonStyle(.plain)
     }
@@ -103,7 +114,9 @@ struct LugichatView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     ForEach(model.messages) { m in row(m).id(m.id) }
-                    if model.sending { TypingDots().frame(maxWidth: .infinity, alignment: .leading).id("typing") }
+                    if model.sending {
+                        HStack(spacing: 10) { FoxAvatar(); TypingDots() }.frame(maxWidth: .infinity, alignment: .leading).id("typing")
+                    }
                     if let error = model.error {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(error).font(.heebo(14, 600)).foregroundStyle(Theme.rose600)
@@ -147,9 +160,13 @@ struct LugichatView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.trailing, 40)
         case .bot:
-            // The answer is the page: no bubble, no avatar, just the text.
-            RichText(text: m.body, font: .heebo(16, 500), color: Theme.ink)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            // Lugi answers: his face beside the text, no bubble around it.
+            HStack(alignment: .top, spacing: 10) {
+                FoxAvatar()
+                RichText(text: m.body, font: .heebo(16, 500), color: Theme.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -203,7 +220,7 @@ struct LugichatView: View {
                         .padding(.vertical, 10)
                     Button { submit() } label: {
                         Image(systemName: "arrow.up").font(.system(size: 16, weight: .bold)).foregroundStyle(.white)
-                            .frame(width: 40, height: 40).background(canSend ? Theme.violet500 : Theme.slate300, in: Circle())
+                            .frame(width: 40, height: 40).background(canSend ? AnyShapeStyle(LinearGradient(colors: [Theme.violet500, Theme.brand600], startPoint: .top, endPoint: .bottom)) : AnyShapeStyle(Theme.slate300), in: Circle())
                     }
                     .disabled(!canSend)
                     .accessibilityLabel("שליחה")
@@ -232,6 +249,19 @@ struct LugichatView: View {
         let text = draft
         draft = ""
         Task { await model.send(text) }
+    }
+}
+
+/// Lugi's face, the small round avatar that sits next to everything he says.
+struct FoxAvatar: View {
+    var size: CGFloat = 38
+    var body: some View {
+        Image("Lugi-peek").resizable().scaledToFill()
+            .frame(width: size, height: size)
+            .background(LinearGradient(colors: [Color(hex: 0xFFEDD5), Color(hex: 0xFED7AA)], startPoint: .top, endPoint: .bottom), in: Circle())
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Theme.orange300, lineWidth: 1.5))
+            .accessibilityHidden(true)
     }
 }
 

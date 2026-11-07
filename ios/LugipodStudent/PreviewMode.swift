@@ -2,7 +2,7 @@ import Foundation
 
 /// A development aid: `LUGIPOD_PREVIEW=<screen>` (an environment variable, set by CI through `simctl launch`) makes a DEBUG build
 /// skip sign-in and show a screen with sample data, so every screen can be screenshotted in the simulator without a server.
-/// Screens: celebrate, coins, post-lesson, post-lesson-encore, call, login, login-code, login-email, home, home-parent, group, ask, lugichat, lugichat-thread, lugichat-limit, daily, daily-answered, more, alerts.
+/// Screens: availability, home-limit, celebrate, coins, post-lesson, post-lesson-encore, call, login, login-code, login-email, home, home-parent, group, ask, lugichat, lugichat-thread, lugichat-limit, daily, daily-answered, more, alerts.
 /// Release builds (TestFlight) compile this away: `isOn` is always false there.
 enum PreviewMode {
     #if DEBUG
@@ -12,10 +12,10 @@ enum PreviewMode {
 
     static func tab() -> AppRouter.Tab? {
         switch screen {
-        case "home", "home-parent", "group", "ask", "alerts": return .home
+        case "home", "home-parent", "home-limit", "group", "ask", "alerts": return .home
         case "lugichat", "lugichat-thread", "lugichat-limit": return .lugichat
         case "daily", "daily-answered": return .practice
-        case "more": return .more
+        case "more", "availability": return .more
         case "celebrate", "coins": return .practice
         default: return nil
         }
@@ -88,7 +88,7 @@ enum PreviewMode {
            "last":null,"homework":[],"pastCount":0,"myQuestions":0}],
          "badge":{"title":{"emoji":"🚀","label":"חוקר מכניקה","rarity":"rare"},"avatar":"🦊","frame":"frame_violet"},
          "points":{"level":"להבה","balance":340,"lifetime":560,"nextLevelAt":500,"missionsOpen":2},
-         "consumption":{"period":"2026-11","consumedLugis":7.5,"capLugis":12,"pctUsed":62,"uncapped":false,"creditLugis":1},
+         "consumption":{"period":"2026-11","consumedLugis":(screen == "home-limit" ? 12 : 7.5),"capLugis":12,"pctUsed":62,"uncapped":false,"limitReached":(screen == "home-limit" ? "true" : "false")},
          "family":{"hasParent":\(parent)},
          "dailyChallenge":{"doneToday":false,"streak":6},
          "lugichat":{"free_left":14,"free_per_day":20,"pack_left":0,"can_ask":true},

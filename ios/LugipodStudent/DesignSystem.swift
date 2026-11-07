@@ -28,6 +28,7 @@ enum Theme {
     static let brand600 = Color(hex: 0x4F46E5)
     static let brand700 = Color(hex: 0x4338CA)
     static let brand800 = Color(hex: 0x3730A3)
+    static let brand900 = Color(hex: 0x312E81)
     static let violet500 = Color(hex: 0x8B5CF6)
     static let violet700 = Color(hex: 0x6D28D9)
     static let violet50 = Color(hex: 0xF5F3FF)
@@ -65,6 +66,22 @@ enum Theme {
     static let sky50 = Color(hex: 0xF0F9FF)
     static let sky200 = Color(hex: 0xBAE6FD)
     static let sky800 = Color(hex: 0x075985)
+
+    // The fox's orange and the gold of the lugi coin: the app's warm side, used boldly (calls to action, dates, coins).
+    static let orange400 = Color(hex: 0xFB923C)
+    static let orange500 = Color(hex: 0xF97316)
+    static let orange600 = Color(hex: 0xEA580C)
+    static let orange700 = Color(hex: 0xC2410C)
+    static let gold300 = Color(hex: 0xFDE047)
+    static let gold500 = Color(hex: 0xF59E0B)
+    static let gold700 = Color(hex: 0xB45309)
+
+    // Gradients
+    /// The big indigo block at the top of the app.
+    static let hero = LinearGradient(colors: [Color(hex: 0x1E1B6E), brand800, brand600, Color(hex: 0x7C3AED)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    static let cta = LinearGradient(colors: [orange400, orange600], startPoint: .top, endPoint: .bottom)
+    static let indigoButton = LinearGradient(colors: [brand500, brand700], startPoint: .top, endPoint: .bottom)
+    static let coin = LinearGradient(colors: [gold300, gold500, Color(hex: 0xD97706)], startPoint: .topLeading, endPoint: .bottomTrailing)
 
     /// The website's `shadow-soft`.
     static let shadowSoft1 = Color(hex: 0x0F172A, opacity: 0.04)
@@ -117,8 +134,8 @@ struct ScreenBackground: View {
         // the GPU on every scroll frame (the main reason the first build felt heavy, most of all on an iPad's big screen).
         ZStack {
             Theme.page
-            RadialGradient(colors: [Theme.brand200.opacity(0.55), Theme.brand200.opacity(0)], center: .init(x: 0.5, y: -0.02), startRadius: 0, endRadius: 380)
-            RadialGradient(colors: [Theme.amber200.opacity(0.40), Theme.amber200.opacity(0)], center: .init(x: 0.12, y: 1.0), startRadius: 0, endRadius: 340)
+            RadialGradient(colors: [Theme.brand300.opacity(0.70), Theme.brand300.opacity(0)], center: .init(x: 0.5, y: -0.02), startRadius: 0, endRadius: 420)
+            RadialGradient(colors: [Theme.orange300.opacity(0.55), Theme.orange300.opacity(0)], center: .init(x: 0.12, y: 1.0), startRadius: 0, endRadius: 380)
         }
         .ignoresSafeArea()
         .drawingGroup()
@@ -213,8 +230,8 @@ struct PrimaryButtonStyle: ButtonStyle {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 15)
-            .background(enabled ? Theme.brand600 : Theme.brand300, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .shadow(color: enabled ? Theme.brand600.opacity(0.25) : .clear, radius: 10, y: 5)
+            .background { RoundedRectangle(cornerRadius: 16, style: .continuous).fill(enabled ? AnyShapeStyle(Theme.indigoButton) : AnyShapeStyle(Theme.brand300)) }
+            .shadow(color: enabled ? Theme.brand700.opacity(0.40) : .clear, radius: 12, y: 6)
             .opacity(configuration.isPressed ? 0.88 : 1)
             .scaleEffect(configuration.isPressed ? 0.985 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
@@ -231,6 +248,23 @@ struct SecondaryButtonStyle: ButtonStyle {
             .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.brand200, lineWidth: 1.5))
             .opacity(configuration.isPressed ? 0.85 : 1)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+    }
+}
+
+/// The warm call to action: the fox's orange.
+struct CTAButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var enabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.heebo(17, 800))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 15)
+            .background { RoundedRectangle(cornerRadius: 16, style: .continuous).fill(enabled ? AnyShapeStyle(Theme.cta) : AnyShapeStyle(Theme.orange300)) }
+            .shadow(color: enabled ? Theme.orange600.opacity(0.45) : .clear, radius: 12, y: 6)
+            .opacity(configuration.isPressed ? 0.9 : 1)
             .scaleEffect(configuration.isPressed ? 0.985 : 1)
     }
 }

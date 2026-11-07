@@ -7,9 +7,9 @@ enum HomeRoute: Hashable {
     case pastLessons
 }
 
-/// Home is about the lessons: the groups, ordered by whichever lesson is soonest, each one a card with the teacher, who is in it, the next
-/// lesson, the homework and the two actions that matter (ask the teacher, look back). Below them, the family and the month's usage.
-/// Lugichat and the daily challenge live in the tab bar, not here.
+/// Home: a bold indigo header with who you are, what you have consumed (the gold fox coin and the number), and the streak; then the lessons.
+/// Groups come first, ordered by whichever lesson is soonest, each one a coloured card with the teacher, who is in it, the next lesson, the
+/// homework and the two actions that matter (ask the teacher, look back). Lugichat and the daily challenge live in the tab bar.
 struct HomeView: View {
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var inbox: InboxModel
@@ -17,16 +17,28 @@ struct HomeView: View {
     @State private var path: [HomeRoute] = []
     @State private var askGroup: StudentHome.Group?
     @State private var showParent = false
+    @State private var upgrade: Upgrade = .idle
 
     private let shownGroups = 3
 
+    private enum Upgrade: Equatable { case idle, sending, sent, failed(String) }
+
     var body: some View {
         NavigationStack(path: $path) {
-            Scaffold(maxWidth: 720) {
-                header
-                attention
-                content
+            ScrollView {
+                VStack(spacing: 0) {
+                    hero
+                    VStack(spacing: 18) {
+                        attention
+                        content
+                    }
+                    .frame(maxWidth: 720)
+                    .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 36)
+                    .frame(maxWidth: .infinity)
+                }
             }
+            .scrollIndicators(.hidden)
+            .background(ScreenBackground())
             .refreshable { await model.load(); await inbox.load() }
             .navigationDestination(for: HomeRoute.self) { route in
                 switch route {
@@ -39,7 +51,7 @@ struct HomeView: View {
         }
         .sheet(item: $askGroup) { group in
             AskTeacherSheet(group: group) { Task { await model.load() } }
-                .presentationDetents([.medium])
+                .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .environment(\.layoutDirection, .rightToLeft)
         }
@@ -58,36 +70,60 @@ struct HomeView: View {
         #endif
     }
 
-    // MARK: Header
+    // MARK: Hero
 
     private var firstName: String {
         model.data?.student.name.split(separator: " ").first.map(String.init) ?? ""
     }
 
-    private var header: some View {
+    private var hero: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            topRow
+            consumptionRow
+            if let c = model.data?.consumption, c.limitReached == true { limitBanner }
+        }
+        .frame(maxWidth: 720, alignment: .leading)
+        .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 26)
+        .frame(maxWidth: .infinity)
+        .background {
+            // The indigo block runs up under the status bar; its content stays below it.
+            ZStack {
+                Theme.hero
+                // a warm glow in the corner, the fox's orange
+                RadialGradient(colors: [Theme.orange500.opacity(0.55), Theme.orange500.opacity(0)], center: .bottomLeading, startRadius: 0, endRadius: 320)
+            }
+            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 34, bottomTrailingRadius: 34, style: .continuous))
+            .shadow(color: Theme.brand800.opacity(0.35), radius: 16, y: 8)
+            .ignoresSafeArea(edges: .top)
+        }
+    }
+
+    private var topRow: some View {
         HStack(alignment: .center, spacing: 12) {
-            AvatarView(name: model.data?.student.name ?? "", avatar: model.data?.badge?.avatar, frame: model.data?.badge?.frame, size: 54)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(firstName.isEmpty ? "שלום 👋" : "שלום, \(firstName) 👋").font(.heebo(24, 800)).foregroundStyle(Theme.ink).lineLimit(1)
+            AvatarView(name: model.data?.student.name ?? "", avatar: model.data?.badge?.avatar, frame: model.data?.badge?.frame, size: 58)
+                .overlay(RoundedRectangle(cornerRadius: 58 * 0.32, style: .continuous).strokeBorder(.white.opacity(0.9), lineWidth: 2.5))
+            VStack(alignment: .leading, spacing: 5) {
+                Text(firstName.isEmpty ? "שלום 👋" : "שלום, \(firstName) 👋").font(.heebo(25, 900)).foregroundStyle(.white).lineLimit(1)
                 HStack(spacing: 6) {
                     if let title = model.data?.badge?.title { TitleChip(title: title) }
-                    if let level = model.data?.points?.level { Pill(text: "⚡ \(level)", fg: Theme.brand700, bg: Theme.brand50) }
+                    if let level = model.data?.points?.level {
+                        Text("⚡ \(level)").font(.heebo(12, 800)).foregroundStyle(.white)
+                            .lineLimit(1).fixedSize()
+                            .padding(.horizontal, 10).padding(.vertical, 3).background(Color.white.opacity(0.2), in: Capsule())
+                    }
                 }
             }
             Spacer(minLength: 8)
-            if let streak = model.data?.dailyChallenge.streak, streak > 0 {
-                Pill(text: "🔥 \(streak)", fg: Theme.amber800, bg: Theme.amber100)
-            }
             Button { router.showAlerts = true } label: {
                 ZStack(alignment: .topTrailing) {
-                    Image(systemName: "bell.fill").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.brand700)
+                    Image(systemName: "bell.fill").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
                         .frame(width: 46, height: 46)
-                        .background(Color.white, in: Circle())
-                        .overlay(Circle().strokeBorder(Theme.slate200, lineWidth: 1))
-                        .shadow(color: Theme.shadowSoft2, radius: 6, y: 3)
+                        .background(Color.white.opacity(0.2), in: Circle())
+                        .overlay(Circle().strokeBorder(.white.opacity(0.35), lineWidth: 1))
                     if inbox.unread > 0 {
-                        Text("\(min(inbox.unread, 9))").font(.heebo(11, 800)).foregroundStyle(.white)
-                            .frame(minWidth: 18, minHeight: 18).background(Theme.rose500, in: Circle())
+                        Text("\(min(inbox.unread, 9))").font(.heebo(11, 900)).foregroundStyle(.white)
+                            .frame(minWidth: 18, minHeight: 18).background(Theme.orange500, in: Circle())
+                            .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
                             .offset(x: 3, y: -3)
                     }
                 }
@@ -95,7 +131,81 @@ struct HomeView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(inbox.unread > 0 ? "התראות, \(inbox.unread) חדשות" : "התראות")
         }
-        .padding(.top, 4)
+    }
+
+    /// This student's own consumption: the gold fox coin and the number (the number ticks up, with coins, when lugis are spent), the streak, and
+    /// how much of their own share is used when they have one. Never the family's numbers.
+    private var consumptionRow: some View {
+        let c = model.data?.consumption
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center) {
+                CoinCounter(value: c?.consumedLugis ?? 0, capLugis: c?.uncapped == false ? c?.capLugis : nil)
+                Spacer(minLength: 8)
+                if let streak = model.data?.dailyChallenge.streak, streak > 0 {
+                    VStack(spacing: 0) {
+                        Text("🔥").font(.system(size: 22))
+                        Text("\(streak)").font(.heebo(20, 900)).foregroundStyle(.white)
+                        Text("ימים").font(.heebo(11, 700)).foregroundStyle(.white.opacity(0.85))
+                    }
+                    .frame(width: 64, height: 76)
+                    .background(Theme.cta, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .shadow(color: Theme.orange700.opacity(0.4), radius: 8, y: 4)
+                }
+            }
+            if let c, c.uncapped == false, let cap = c.capLugis, cap > 0 {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.white.opacity(0.22))
+                        Capsule().fill(c.limitReached == true ? AnyShapeStyle(Theme.orange500) : AnyShapeStyle(Theme.coin))
+                            .frame(width: max(8, geo.size.width * min(1, c.consumedLugis / cap)))
+                    }
+                }
+                .frame(height: 8)
+            }
+        }
+    }
+
+    /// The student hit their limit: say so plainly, and offer the one thing they can do, ask the parent (who gets the exact situation + a link).
+    private var limitBanner: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("הגעת למגבלה החודשית שלך", systemImage: "exclamationmark.circle.fill")
+                .font(.heebo(16, 900)).foregroundStyle(.white)
+            Text("כדי להמשיך לקבוע שיעורים ופעילויות צריך שההורה יעלה את המגבלה.").font(.heebo(14, 600)).foregroundStyle(.white.opacity(0.92))
+            switch upgrade {
+            case .sent:
+                Label("שלחנו להורה הודעה עם כל הפרטים וקישור לאישור ✓", systemImage: "checkmark.circle.fill")
+                    .font(.heebo(14, 800)).foregroundStyle(Theme.gold300)
+            case .failed(let message):
+                Text(message).font(.heebo(13, 700)).foregroundStyle(Theme.gold300)
+                upgradeButton
+            default:
+                upgradeButton
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Theme.orange400.opacity(0.7), lineWidth: 1.5))
+    }
+
+    private var upgradeButton: some View {
+        Button { Task { await requestUpgrade() } } label: {
+            HStack(spacing: 8) { if upgrade == .sending { ProgressView().tint(.white) }; Image(systemName: "paperplane.fill"); Text("בקשת שדרוג מההורים") }
+        }
+        .buttonStyle(CTAButtonStyle())
+        .disabled(upgrade == .sending)
+    }
+
+    private func requestUpgrade() async {
+        guard model.data?.family.hasParent == true else { showParent = true; return }
+        upgrade = .sending
+        do {
+            _ = try await API.request("POST", "/api/native/student/cap-request", json: [:], timeout: 30)
+            upgrade = .sent
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } catch APIError.server(_, let message) where !message.isEmpty {
+            upgrade = .failed(message)
+        } catch { upgrade = .failed("לא הצלחנו לשלוח. בדקו חיבור ונסו שוב.") }
     }
 
     /// The newest unread alert, as one line: the app points at what is relevant instead of hiding it behind a bell.
@@ -106,15 +216,15 @@ struct HomeView: View {
                 router.open(path: a.path)
             } label: {
                 HStack(spacing: 10) {
-                    Text(a.emoji ?? "🔔").font(.system(size: 20))
-                    Text(a.title).font(.heebo(14, 700)).foregroundStyle(Theme.brand800).lineLimit(1)
+                    Text(a.emoji ?? "🔔").font(.system(size: 22))
+                    Text(a.title).font(.heebo(15, 800)).foregroundStyle(.white).lineLimit(1)
                     Spacer(minLength: 6)
-                    Image(systemName: "chevron.left").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.brand400)
+                    Image(systemName: "chevron.left").font(.system(size: 12, weight: .bold)).foregroundStyle(.white.opacity(0.8))
                 }
-                .padding(.horizontal, 14).padding(.vertical, 12)
+                .padding(.horizontal, 14).padding(.vertical, 13)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.brand50, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.brand200, lineWidth: 1))
+                .background(Theme.indigoButton, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .shadow(color: Theme.brand700.opacity(0.35), radius: 8, y: 4)
             }
             .buttonStyle(.plain)
         }
@@ -126,7 +236,7 @@ struct HomeView: View {
         if let data = model.data {
             if let offer = model.encore { EncoreCardView(rebook: offer) { Task { await model.load() } } }
             groupsSection(data.groups)
-            familyCard(data)
+            parentCard(data)
             libraryTile
         } else if let error = model.error {
             EmptyState(pose: .peek, title: "משהו לא נטען", message: error, actionTitle: "נסו שוב") { Task { await model.load() } }
@@ -141,7 +251,7 @@ struct HomeView: View {
 
     @ViewBuilder
     private func groupsSection(_ groups: [StudentHome.Group]) -> some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             SectionTitle(text: "הקבוצות שלי", count: groups.count)
             if groups.isEmpty {
                 EmptyState(pose: .sit, title: "עדיין אין קבוצה", message: "כשתשובצו לקבוצה, השיעורים שלכם יופיעו כאן.")
@@ -163,77 +273,45 @@ struct HomeView: View {
                 Button { path.append(.pastLessons) } label: {
                     HStack(spacing: 6) { Image(systemName: "clock.arrow.circlepath"); Text("כל השיעורים הקודמים") }
                 }
-                .font(.heebo(14, 700)).foregroundStyle(Theme.slate600).padding(.top, 2)
+                .font(.heebo(15, 800)).foregroundStyle(Theme.brand700).padding(.top, 2)
             }
         }
     }
 
-    // MARK: Family and usage
+    // MARK: Parent and library
 
-    private func familyCard(_ data: StudentHome) -> some View {
-        let c = data.consumption
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Text("👨‍👩‍👧").font(.system(size: 22))
-                Text("המשפחה והצריכה").font(.heebo(18, 800)).foregroundStyle(Theme.ink)
-                Spacer()
+    @ViewBuilder
+    private func parentCard(_ data: StudentHome) -> some View {
+        if data.family.hasParent {
+            Label("מחוברים להורה ✓", systemImage: "checkmark.seal.fill").font(.heebo(14, 800)).foregroundStyle(Theme.emerald700)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    Text("👨‍👩‍👧").font(.system(size: 26))
+                    Text("חברו הורה").font(.heebo(18, 900)).foregroundStyle(.white)
+                }
+                Text("ההורה מקבל עדכונים על השיעורים, רואה מה נוצל ומנהל את התשלום והמגבלה.").font(.heebo(14, 600)).foregroundStyle(.white.opacity(0.92))
+                Button { showParent = true } label: { Label("חיבור הורה", systemImage: "person.badge.plus") }
+                    .buttonStyle(SoftButtonStyle(fg: Theme.brand800, bg: .white))
             }
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("בחודש הזה").font(.heebo(13, 700)).foregroundStyle(Theme.slate500)
-                    Spacer()
-                    Text(HebrewDate.monthYear(c.period)).font(.heebo(12, 600)).foregroundStyle(Theme.slate400)
-                }
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(lugiText(c.consumedLugis)).font(.heebo(30, 800)).foregroundStyle(Theme.brand700)
-                    Text("לוגי נוצלו").font(.heebo(15, 600)).foregroundStyle(Theme.slate600)
-                    if let cap = c.capLugis {
-                        Text("מתוך \(lugiText(cap))").font(.heebo(14, 600)).foregroundStyle(Theme.slate500)
-                    }
-                }
-                if let cap = c.capLugis, cap > 0 {
-                    ProgressView(value: min(1, c.consumedLugis / cap))
-                        .tint(c.pctUsed >= 85 ? Theme.rose500 : Theme.brand500)
-                } else {
-                    Text("ללא תקרה חודשית").font(.heebo(13, 500)).foregroundStyle(Theme.slate500)
-                }
-                if c.creditLugis > 0 {
-                    Label("זיכוי שנצבר: \(lugiText(c.creditLugis)) לוגי", systemImage: "gift.fill").font(.heebo(13, 700)).foregroundStyle(Theme.emerald700)
-                }
-            }
-            .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.brand50.opacity(0.7), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-            if data.family.hasParent {
-                Label("מחוברים להורה ✓", systemImage: "checkmark.seal.fill").font(.heebo(14, 700)).foregroundStyle(Theme.emerald700)
-            } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("עוד לא חיברתם הורה. ההורה מקבל עדכונים על השיעורים והצריכה ומנהל את התשלום.")
-                        .font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
-                    Button { showParent = true } label: { Label("חברו הורה", systemImage: "person.badge.plus") }
-                        .buttonStyle(SoftButtonStyle(fg: .white, bg: Theme.brand600))
-                }
-            }
+            .padding(16)
+            .background(Theme.hero, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .shadow(color: Theme.brand700.opacity(0.3), radius: 10, y: 5)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .card(padding: 16)
-    }
-
-    private func lugiText(_ v: Double) -> String {
-        v == v.rounded() ? String(Int(v)) : String(format: "%.1f", v)
     }
 
     private var libraryTile: some View {
         HStack(spacing: 12) {
-            Image(systemName: "lock.fill").font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.slate400)
-            Text("ספריית הסרטונים").font(.heebo(15, 700)).foregroundStyle(Theme.slate600)
-            Text("בקרוב").font(.heebo(12, 700)).foregroundStyle(Theme.amber800)
-                .padding(.horizontal, 8).padding(.vertical, 2).background(Theme.amber100, in: Capsule())
+            Image(systemName: "lock.fill").font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.slate500)
+            Text("ספריית הסרטונים").font(.heebo(15, 800)).foregroundStyle(Theme.slate700)
+            Text("בקרוב").font(.heebo(12, 800)).foregroundStyle(.white)
+                .padding(.horizontal, 9).padding(.vertical, 3).background(Theme.orange500, in: Capsule())
             Spacer()
         }
         .padding(14)
-        .background(Theme.slate50, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Theme.slate100, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }

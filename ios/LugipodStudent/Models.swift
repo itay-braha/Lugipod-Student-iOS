@@ -63,7 +63,8 @@ struct StudentHome: Decodable, Equatable {
         let capLugis: Double?
         let pctUsed: Double
         let uncapped: Bool
-        let creditLugis: Double
+        /// This student has used up their own share (or the family has no room left). Only the student's own numbers ever reach the app.
+        let limitReached: Bool?
     }
 
     struct Badge: Decodable, Equatable {

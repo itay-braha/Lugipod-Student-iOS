@@ -96,6 +96,8 @@ jobs:
           shoot 14-call call portrait
           shoot 15-ask ask portrait
           shoot 16-celebrate celebrate portrait
+          shoot 20-home-limit home-limit portrait
+          shoot 21-availability availability portrait
           shoot 17-coins coins portrait
           shoot 18-post-lesson post-lesson portrait
           shoot 19-post-lesson-encore post-lesson-encore portrait

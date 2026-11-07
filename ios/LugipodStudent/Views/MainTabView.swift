@@ -86,7 +86,7 @@ struct AppTabBar: View {
     private let items: [Item] = [
         Item(tab: .home, title: "הקבוצות", icon: "house.fill", color: Theme.brand600),
         Item(tab: .lugichat, title: "לוגיצ׳אט", icon: "sparkles", color: Theme.violet500),
-        Item(tab: .practice, title: "תרגול", icon: "flame.fill", color: Theme.amber500),
+        Item(tab: .practice, title: "תרגול", icon: "flame.fill", color: Theme.orange500),
         Item(tab: .more, title: "עוד", icon: "square.grid.2x2.fill", color: Theme.emerald600),
     ]
 
@@ -97,11 +97,11 @@ struct AppTabBar: View {
                 Button { selection = item.tab } label: {
                     VStack(spacing: 4) {
                         Image(systemName: item.icon)
-                            .font(.system(size: 19, weight: .bold))
-                            .foregroundStyle(on ? item.color : item.color.opacity(0.55))
-                            .frame(width: 58, height: 32)
-                            .background(on ? item.color.opacity(0.14) : .clear, in: Capsule())
-                        Text(item.title).font(.heebo(11, on ? 800 : 600)).foregroundStyle(on ? item.color : Theme.slate500)
+                            .font(.system(size: 19, weight: .heavy))
+                            .foregroundStyle(on ? .white : item.color)
+                            .frame(width: 60, height: 34)
+                            .background { if on { Capsule().fill(item.color.gradient).shadow(color: item.color.opacity(0.45), radius: 6, y: 3) } }
+                        Text(item.title).font(.heebo(11, on ? 900 : 700)).foregroundStyle(on ? item.color : Theme.slate600)
                     }
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())

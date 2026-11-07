@@ -15,17 +15,32 @@ struct DailyChallengeView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .center, spacing: 12) {
+            Text("🔥").font(.system(size: 30))
+                .frame(width: 54, height: 54).background(Color.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
-                Text("האתגר היומי").font(.heebo(26, 800)).foregroundStyle(Theme.ink)
-                Text(subtitle).font(.heebo(13, 600)).foregroundStyle(Theme.slate500)
+                Text("האתגר היומי").font(.heebo(25, 900)).foregroundStyle(.white)
+                Text(subtitle).font(.heebo(13, 700)).foregroundStyle(.white.opacity(0.92))
             }
             Spacer()
-            Pill(text: "🔥 \(model.streak)", fg: Theme.amber800, bg: Theme.amber100)
+            VStack(spacing: 0) {
+                Text("\(model.streak)").font(.heebo(24, 900)).foregroundStyle(.white)
+                Text("ימים ברצף").font(.heebo(10, 800)).foregroundStyle(.white.opacity(0.9))
+            }
+            .padding(.horizontal, 12).padding(.vertical, 6).background(Color.black.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .frame(maxWidth: 720)
-        .padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 8)
+        .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 18)
         .frame(maxWidth: .infinity)
+        .background {
+            ZStack {
+                LinearGradient(colors: [Theme.orange400, Theme.orange600, Color(hex: 0xDC2626)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                RadialGradient(colors: [Theme.gold300.opacity(0.5), .clear], center: .topTrailing, startRadius: 0, endRadius: 260)
+            }
+            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 30, bottomTrailingRadius: 30, style: .continuous))
+            .shadow(color: Theme.orange700.opacity(0.35), radius: 14, y: 7)
+            .ignoresSafeArea(edges: .top)
+        }
     }
 
     private var subtitle: String {
@@ -103,8 +118,8 @@ struct DailyChallengeView: View {
         HStack(spacing: 5) {
             ForEach(0..<model.total, id: \.self) { i in
                 Capsule()
-                    .fill(i < model.index ? Theme.emerald500 : (i == model.index ? Theme.amber500 : Theme.slate200))
-                    .frame(height: 6)
+                    .fill(i < model.index ? Theme.emerald500 : (i == model.index ? Theme.orange500 : Theme.slate300))
+                    .frame(height: 8)
             }
         }
     }
@@ -116,22 +131,31 @@ struct DailyChallengeView: View {
         let tint: (fg: Color, bg: Color, border: Color) = {
             if answered && isCorrect { return (Theme.emerald700, Theme.emerald50, Theme.emerald500) }
             if answered && isPicked { return (Theme.rose600, Theme.rose50, Theme.rose500) }
-            return (Theme.ink, .white, Theme.slate200)
+            return (Theme.ink, .white, Theme.brand300)
         }()
         return Button { model.pick(original) } label: {
-            HStack(spacing: 10) {
-                RichText(text: text, font: .heebo(17, 600), color: tint.fg)
+            HStack(spacing: 12) {
+                // the choice's letter, in a solid disc (it turns green / red with the answer)
+                Text(letter(for: original)).font(.heebo(15, 900)).foregroundStyle(.white)
+                    .frame(width: 30, height: 30)
+                    .background(answered && isCorrect ? Theme.emerald500 : (answered && isPicked ? Theme.rose500 : Theme.brand500), in: Circle())
+                RichText(text: text, font: .heebo(17, 700), color: tint.fg)
                 if answered && isCorrect { Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.emerald500) }
                 else if answered && isPicked { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.rose500) }
             }
             .padding(.horizontal, 16).padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(tint.bg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(tint.border, lineWidth: answered && (isCorrect || isPicked) ? 2 : 1))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(answered ? tint.border : Theme.brand200, lineWidth: answered && (isCorrect || isPicked) ? 3 : 1.5))
             .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(.plain)
         .allowsHitTesting(!answered)
+    }
+
+    private func letter(for original: Int) -> String {
+        let order = model.order.firstIndex(of: original) ?? original
+        return ["א", "ב", "ג", "ד", "ה", "ו"][min(order, 5)]
     }
 
     private func feedback(_ r: DailyResult) -> some View {
