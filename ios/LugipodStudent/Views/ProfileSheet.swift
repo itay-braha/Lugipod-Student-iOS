@@ -31,7 +31,7 @@ final class ProfileModel: ObservableObject {
         } catch APIError.server(_, let message) where !message.isEmpty {
             error = message
             return false
-        } catch { error = "לא הצלחנו. נסו שוב."; return false }
+        } catch { self.error = "לא הצלחנו. נסו שוב."; return false }
     }
 }
 
