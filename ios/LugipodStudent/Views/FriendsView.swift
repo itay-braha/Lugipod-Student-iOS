@@ -296,7 +296,7 @@ struct FriendsView: View {
     }
 }
 
-/// What tapping "הזמנת חברים" shows first: the deal, then the share sheet. 10 לוגי (₪200) after the friend's 4 full lessons.
+/// What tapping "הזמנת חברים" shows first: the deal, then the share sheet. 10 לוגי after the friend's 4 full lessons (lugis only: never a shekel amount in the app).
 struct InviteSheet: View {
     let invite: FriendsResponse.Invite
     @Environment(\.dismiss) private var dismiss
@@ -308,12 +308,12 @@ struct InviteSheet: View {
                 FoxCoin(size: 96).padding(.top, 8)
                 VStack(spacing: 6) {
                     Text("הזמינו חבר/ה וקבלו 10 לוגי").font(.heebo(26, 900)).foregroundStyle(Theme.ink).multilineTextAlignment(.center)
-                    Text("200 ₪ ✨*").font(.heebo(20, 900)).foregroundStyle(Theme.orange600)
+                    Text("על כל חבר/ה שמתמידים ✨*").font(.heebo(17, 800)).foregroundStyle(Theme.orange600)
                 }
                 VStack(alignment: .leading, spacing: 12) {
                     step("1", "שולחים לחבר/ה את הקישור שלכם")
                     step("2", "הוא/היא מצטרפים ומסיימים 4 שיעורים מלאים")
-                    step("3", "אתם מקבלים 10 לוגי (200 ₪) זיכוי בחשבון החודשי, והוא תקף לשנה")
+                    step("3", "אתם מקבלים 10 לוגי במתנה: הם יורדים לבד מהשיעורים שלכם, ותקפים לשנה")
                 }
                 .card(padding: 16, radius: 22)
                 Text("* אם החבר/ה נהנים מהנחה במסגרת ארגון או בית ספר, הסכום יותאם בהתאם.")

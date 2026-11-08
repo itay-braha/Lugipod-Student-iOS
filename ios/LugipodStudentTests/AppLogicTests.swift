@@ -154,6 +154,14 @@ final class AppLogicTests: XCTestCase {
         XCTAssertTrue(AuthStore.otpMessage(for: E(description: "token has expired or is invalid")).contains("הקוד לא התקבל"))
     }
 
+    func testGiftLugisAreDecodedAndGoneAtZero() throws {
+        let home = try API.decoder.decode(StudentHome.self, from: PreviewMode.response(method: "GET", path: "/api/native/student/home"))
+        XCTAssertEqual(home.consumption.giftLugis, 5)
+        let none = #"{"consumedLugis":3,"capLugis":null,"pctUsed":0,"uncapped":true}"#
+        let c = try API.decoder.decode(StudentHome.Consumption.self, from: Data(none.utf8))
+        XCTAssertNil(c.giftLugis)                           // an older server, or no gift: nothing is shown
+    }
+
     func testHebrewMonthLabel() {
         XCTAssertEqual(HebrewDate.monthYear("2026-11"), "נובמבר 2026")
         XCTAssertEqual(HebrewDate.monthYear(nil), "")

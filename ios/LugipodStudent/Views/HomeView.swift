@@ -174,6 +174,7 @@ struct HomeView: View {
                     .accessibilityLabel("רצף של \(streak) ימים. אפשר ללמוד איך מרוויחים")
                 }
             }
+            if let gift = c?.giftLugis, gift > 0 { giftStrip(gift) }
             if let c, c.uncapped == false, let cap = c.capLugis, cap > 0 {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -185,6 +186,24 @@ struct HomeView: View {
                 .frame(height: 8)
             }
         }
+    }
+
+    /// Earned lugis waiting to be used: shown next to what was used, they go down by themselves with every lesson, and the strip is gone
+    /// once they are (then the home is exactly as it was before). Lugis only, never a shekel amount.
+    private func giftStrip(_ gift: Double) -> some View {
+        HStack(spacing: 10) {
+            Text("🎁").font(.system(size: 24))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(gift == gift.rounded() ? String(Int(gift)) : String(format: "%.1f", gift)) לוגי במתנה").font(.heebo(17, 900)).foregroundStyle(Theme.gold300)
+                Text("יורדים לבד מכל שיעור שלומדים. כשנגמרים, חוזרים לרגיל.").font(.heebo(12, 700)).foregroundStyle(.white.opacity(0.92))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Color.white.opacity(0.16), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.gold300.opacity(0.6), lineWidth: 1.2))
+        .accessibilityElement(children: .combine)
     }
 
     /// The student hit their limit: say so plainly, and offer the one thing they can do, ask the parent (who gets the exact situation + a link).

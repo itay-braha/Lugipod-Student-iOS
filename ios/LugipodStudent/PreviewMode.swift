@@ -97,7 +97,7 @@ enum PreviewMode {
            "last":null,"homework":[],"pastCount":0,"myQuestions":0}],
          "badge":{"title":{"emoji":"🚀","label":"חוקר מכניקה","rarity":"rare"},"avatar":"🦊","frame":"frame_violet"},
          "points":{"level":"להבה","balance":340,"lifetime":560,"nextLevelAt":500,"missionsOpen":2},
-         "consumption":{"period":"2026-11","consumedLugis":\(limit ? "12" : "7.5"),"capLugis":12,"pctUsed":62,"uncapped":false,"limitReached":\(limit ? "true" : "false")},
+         "consumption":{"period":"2026-11","consumedLugis":\(limit ? "12" : "7.5"),"capLugis":12,"pctUsed":62,"uncapped":false,"limitReached":\(limit ? "true" : "false"),"giftLugis":\(limit ? "0" : "5")},
          "family":{"hasParent":\(parent)},
          "dailyChallenge":{"doneToday":false,"streak":6,"highest":14,"toGift":4},
          "lugichat":{"free_left":14,"free_per_day":20,"pack_left":0,"can_ask":true},

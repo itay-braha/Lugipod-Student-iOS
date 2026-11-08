@@ -65,6 +65,8 @@ struct StudentHome: Decodable, Equatable {
         let uncapped: Bool
         /// This student has used up their own share (or the family has no room left). Only the student's own numbers ever reach the app.
         let limitReached: Bool?
+        /// Earned lugis (a gift) still waiting to be used. They are used up by every lesson on their own; 0 or missing = nothing to show.
+        let giftLugis: Double?
     }
 
     struct Badge: Decodable, Equatable {
