@@ -14,10 +14,10 @@ struct RootView: View {
                 .task { call.loadPreview() }
         } else if PreviewMode.screen == "invite" {
             // Screenshots only: the invite sheet on its own.
-            InviteSheet(invite: .init(link: "https://lugipod.com/r/2ebe1b55", text: "")).environment(.layoutDirection, .rightToLeft)
+            InviteSheet(invite: .init(link: "https://lugipod.com/r/2ebe1b55", text: "")).environment(\.layoutDirection, .rightToLeft)
         } else if PreviewMode.screen == "friends-list" {
             // Screenshots only: the friends tab without the tab shell.
-            FriendsView().environmentObject(FriendsModel()).environment(.layoutDirection, .rightToLeft)
+            FriendsView().environmentObject(FriendsModel()).environment(\.layoutDirection, .rightToLeft)
         } else if PreviewMode.screen?.hasPrefix("post-lesson") == true {
             // Screenshots only: the "how was it?" flow with the next-lesson offer.
             PostLessonFlow(kind: "lesson", ref: "preview", leftEarly: false, teacherName: "איתי") {}
