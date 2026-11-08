@@ -67,7 +67,7 @@ final class HomeModel: ObservableObject {
         do {
             let raw = try await API.request("GET", "/api/native/student/home")
             #if DEBUG
-            PreviewMode.log("home: got (raw.count) bytes")
+            PreviewMode.log("home: got " + String(raw.count))
             #endif
             data = try API.decoder.decode(StudentHome.self, from: raw)
             LocalCache.write("home", raw)
@@ -80,7 +80,7 @@ final class HomeModel: ObservableObject {
         } catch {
             // Keep showing what we have; only say something when there is nothing to show.
             #if DEBUG
-            PreviewMode.log("home: ERROR (error)")
+            PreviewMode.log("home: ERROR " + String(describing: error))
             #endif
             if data == nil { self.error = "לא הצלחנו לטעון את הנתונים. בדקו חיבור ונסו שוב." }
         }
