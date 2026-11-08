@@ -77,7 +77,7 @@ jobs:
           shoot() {
             xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
             SIMCTL_CHILD_LUGIPOD_PREVIEW="$2" SIMCTL_CHILD_LUGIPOD_ORIENT="$3" xcrun simctl launch "$UDID" "$BUNDLE" >/dev/null
-            sleep 12
+            sleep 7
             xcrun simctl io "$UDID" screenshot "shots/$1.png"
           }
           shoot 01-login login portrait
@@ -101,6 +101,7 @@ jobs:
           shoot 22-friends friends portrait
           shoot 23-peer peer portrait
           shoot 26-invite invite portrait
+          shoot 27-friends-list friends-list portrait
           shoot 24-profile profile portrait
           shoot 25-history history portrait
           shoot 17-coins coins portrait
@@ -137,7 +138,7 @@ jobs:
           shoot() {
             xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
             SIMCTL_CHILD_LUGIPOD_PREVIEW="$2" xcrun simctl launch "$UDID" "$BUNDLE" >/dev/null
-            sleep 12
+            sleep 7
             xcrun simctl io "$UDID" screenshot "shots-ipad/$1.png"
           }
           shoot ipad-home home
