@@ -1,0 +1,117 @@
+name: Store screenshots
+
+# App Store screenshots from the real app: signs in as the App Review demo student against the live server (UI test
+# StoreShotsUITests) on a 6.9" iPhone and a 13" iPad simulator, and adds the preview-mode screens that need no account
+# (Lugichat thread with formulas, the daily challenge, the celebration). Manual: Actions > Store screenshots > Run workflow.
+# Needs repository secrets SUPABASE_PROJECT_HOST, SUPABASE_PUBLISHABLE_KEY and APP_REVIEW_STUDENT_PASSWORD.
+on:
+  workflow_dispatch:
+
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app
+
+jobs:
+  shots:
+    name: Photograph
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Select Xcode
+        run: sudo xcode-select -s "$XCODE_APP" && xcodebuild -version
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: ios/.spm
+          key: spm-${{ runner.os }}-${{ hashFiles('ios/project.yml') }}
+
+      - name: Real connection settings
+        env:
+          HOST: ${{ secrets.SUPABASE_PROJECT_HOST }}
+          KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          printf "SUPABASE_PROJECT_HOST = %s\nSUPABASE_PUBLISHABLE_KEY = %s\n" "$HOST" "$KEY" > ios/Config/Secrets.xcconfig
+
+      - name: Pick simulators
+        id: sim
+        run: |
+          pick() {
+            xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          prefix, contains = sys.argv[1], sys.argv[2]
+          data = json.load(sys.stdin)["devices"]
+          for runtime in sorted((r for r in data if "iOS" in r), reverse=True):
+              for d in data[runtime]:
+                  if d["name"].startswith(prefix) and contains in d["name"]:
+                      print(d["udid"]); sys.exit(0)
+          ' "$1" "$2"
+          }
+          PHONE=$(pick "iPhone" "Pro Max")
+          PAD=$(pick "iPad Pro" "13")
+          echo "phone=$PHONE" >> "$GITHUB_OUTPUT"
+          echo "pad=$PAD" >> "$GITHUB_OUTPUT"
+          xcrun simctl list devices available | grep -E "$PHONE|$PAD" || true
+
+      - name: Build for testing
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing \
+            -project ios/LugipodStudent.xcodeproj -scheme LugipodStudentUI \
+            -destination "id=${{ steps.sim.outputs.phone }}" \
+            -derivedDataPath ios/.derived -clonedSourcePackagesDirPath ios/.spm \
+            -skipMacroValidation -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO \
+            > build.log 2>&1 || { grep -E "error:" build.log | tail -40; exit 1; }
+
+      - name: Photograph (iPhone 6.9 inch and iPad 13 inch)
+        run: |
+          set -o pipefail
+          APP=ios/.derived/Build/Products/Debug-iphonesimulator/LugipodStudent.app
+          BUNDLE=com.itaybraha.lugipod
+          for KIND in iphone ipad; do
+            if [ "$KIND" = iphone ]; then UDID=${{ steps.sim.outputs.phone }}; else UDID=${{ steps.sim.outputs.pad }}; fi
+            OUT="$PWD/store/$KIND"; mkdir -p "$OUT"
+            xcrun simctl boot "$UDID" || true
+            xcrun simctl bootstatus "$UDID" -b
+            xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+            xcrun simctl uninstall "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
+
+            # 1) the real signed-in account
+            STORE_SHOTS_DIR="$OUT" TEST_RUNNER_STORE_SHOTS_DIR="$OUT" TEST_RUNNER_STORE_SHOTS_PASSWORD="${{ secrets.APP_REVIEW_STUDENT_PASSWORD }}" \
+            xcodebuild test-without-building \
+              -project ios/LugipodStudent.xcodeproj -scheme LugipodStudentUI \
+              -destination "id=$UDID" -only-testing:LugipodStudentUITests/StoreShotsUITests \
+              -derivedDataPath ios/.derived CODE_SIGNING_ALLOWED=NO \
+              > "uitest-$KIND.log" 2>&1 || { grep -E "error:|XCTAssert|failed" "uitest-$KIND.log" | tail -20; }
+            grep -E "Test Case|\*\* TEST" "uitest-$KIND.log" | tail -5
+
+            # 2) preview-mode screens that need no account
+            xcrun simctl install "$UDID" "$APP"
+            for S in lugichat-thread daily daily-answered celebrate coins profile; do
+              xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
+              SIMCTL_CHILD_LUGIPOD_PREVIEW="$S" xcrun simctl launch "$UDID" "$BUNDLE" >/dev/null
+              sleep 8
+              xcrun simctl io "$UDID" screenshot "$OUT/preview-$S.png"
+            done
+            xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
+            ls -la "$OUT"
+          done
+
+      - name: Remove the connection settings
+        if: always()
+        run: rm -f ios/Config/Secrets.xcconfig
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: store-shots-${{ github.run_number }}
+          path: |
+            store
+            uitest-*.log
+          if-no-files-found: ignore
