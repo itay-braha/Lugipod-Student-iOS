@@ -63,6 +63,34 @@ jobs:
             > test.log 2>&1 || { grep -E "error:|\*\* (BUILD|TEST)|failed" test.log | tail -80; exit 1; }
           grep -E "Test Suite|\*\* TEST" test.log | tail -15
 
+      # Real typing: opens the app on a clean simulator, taps the phone box, types with the keyboard and checks (and photographs)
+      # what the screen shows. Catches "I typed my number and cannot see it" before a tester does.
+      - name: UI tests (typing in the sign-in fields)
+        if: always()
+        run: |
+          set -o pipefail
+          rm -rf /tmp/lugipod-ui
+          xcrun simctl uninstall "${{ steps.sim.outputs.udid }}" com.itaybraha.lugipod >/dev/null 2>&1 || true
+          xcodebuild test \
+            -project ios/LugipodStudent.xcodeproj -scheme LugipodStudentUI \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath ios/.derived -clonedSourcePackagesDirPath ios/.spm \
+            -resultBundlePath "$RUNNER_TEMP/ui.xcresult" \
+            -skipMacroValidation -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO \
+            > uitest.log 2>&1 || { grep -E "error:|\*\* (BUILD|TEST)|failed|XCTAssert" uitest.log | tail -60; mkdir -p uishots; cp -R /tmp/lugipod-ui/. uishots/ 2>/dev/null || true; exit 1; }
+          grep -E "Test Case|\*\* TEST" uitest.log | tail -15
+          mkdir -p uishots; cp -R /tmp/lugipod-ui/. uishots/ 2>/dev/null || true
+          ls -la uishots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-typing-${{ github.run_number }}
+          path: |
+            uishots
+            uitest.log
+          if-no-files-found: ignore
+
       # Photographs every screen in the iPhone simulator, using the DEBUG-only preview mode (sample
       # data, no sign-in), so the design can be reviewed without a device. See PreviewMode.swift.
       - name: Screenshots

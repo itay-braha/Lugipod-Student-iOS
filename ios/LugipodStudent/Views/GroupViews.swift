@@ -384,10 +384,7 @@ struct ParentSheet: View {
             Text("נשלח להורה הודעת וואטסאפ עם עדכונים על השיעורים והצריכה. ההורה גם מנהל את התשלום והתקרה החודשית.")
                 .font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
             LugiFieldBox(label: "מספר וואטסאפ של ההורה", focused: focused) {
-                TextField("050-123-4567", text: $phone)
-                    .keyboardType(.numberPad).font(.heebo(20, 600).monospacedDigit())
-                    .environment(\.layoutDirection, .leftToRight).multilineTextAlignment(.leading)
-                    .focused($focused)
+                PhoneField(phone: $phone, focused: $focused)
                     .onChange(of: phone) { _, new in let f = Phone.format(new); if f != new { phone = f } }
             }
             if let error { Text(error).font(.heebo(13, 600)).foregroundStyle(Theme.rose600) }

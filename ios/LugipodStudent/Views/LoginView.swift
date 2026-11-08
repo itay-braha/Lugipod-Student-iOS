@@ -102,13 +102,7 @@ struct LoginView: View {
                         Text("🇮🇱").font(.system(size: 20))
                         Text("+972").font(.heebo(16, 800).monospacedDigit()).foregroundStyle(Theme.slate600)
                     }
-                    TextField("050-123-4567", text: $phone)
-                        .keyboardType(.numberPad).textContentType(.telephoneNumber)
-                        .font(.heebo(21, 600).monospacedDigit())
-                        .environment(\.layoutDirection, .leftToRight)
-                        .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .focused($focused)
+                    PhoneField(phone: $phone, focused: $focused)
                         .onChange(of: phone) { _, new in
                             let f = Phone.format(new)
                             if f != new { phone = f }
@@ -192,6 +186,58 @@ struct LoginView: View {
     }
 }
 
+/// The phone number box. The keyboard talks to an invisible text field, and what the person sees is drawn by us: a plain system-font `Text`
+/// in solid ink on white, so what they type can never turn out invisible (the way the code boxes below already work), with our own caret and
+/// the grey example shown only while the box is empty.
+struct PhoneField: View {
+    @Binding var phone: String
+    var focused: FocusState<Bool>.Binding
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            TextField("", text: $phone)
+                .keyboardType(.numberPad).textContentType(.telephoneNumber)
+                .focused(focused)
+                .opacity(0.02)
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .accessibilityIdentifier("phone-input")
+                .accessibilityLabel("מספר טלפון")
+            HStack(spacing: 1) {
+                if phone.isEmpty {
+                    if focused.wrappedValue { Caret() }
+                    Text("050-123-4567")
+                        .font(.system(size: 22, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(Theme.slate400)
+                } else {
+                    Text(phone)
+                        .font(.system(size: 22, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
+                        .accessibilityIdentifier("phone-display")
+                    if focused.wrappedValue { Caret() }
+                }
+                Spacer(minLength: 0)
+            }
+            .allowsHitTesting(false)
+        }
+        .environment(\.layoutDirection, .leftToRight)
+        .contentShape(Rectangle())
+        .onTapGesture { focused.wrappedValue = true }
+    }
+}
+
+/// A blinking text cursor for the boxes we draw ourselves.
+struct Caret: View {
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.5)) { ctx in
+            Rectangle()
+                .fill(Theme.brand500)
+                .frame(width: 2, height: 26)
+                .opacity(Int(ctx.date.timeIntervalSinceReferenceDate * 2) % 2 == 0 ? 1 : 0)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 /// Six digit boxes driven by one hidden text field (so the keyboard's one-time-code suggestion works).
 struct OTPBoxes: View {
     @Binding var code: String
@@ -253,14 +299,18 @@ struct EmailLoginView: View {
                             TextField("name@example.com", text: $email)
                                 .keyboardType(.emailAddress).textContentType(.username)
                                 .textInputAutocapitalization(.never).autocorrectionDisabled()
+                                .accessibilityIdentifier("email-input")
                                 .font(.heebo(17, 500))
+                                .foregroundStyle(Theme.ink)
                                 .environment(\.layoutDirection, .leftToRight)
                                 .focused($field, equals: .email)
                         }
                         LugiFieldBox(label: "סיסמה", focused: field == .password) {
                             SecureField("••••••••", text: $password)
                                 .textContentType(.password)
+                                .accessibilityIdentifier("password-input")
                                 .font(.heebo(17, 500))
+                                .foregroundStyle(Theme.ink)
                                 .environment(\.layoutDirection, .leftToRight)
                                 .focused($field, equals: .password)
                         }

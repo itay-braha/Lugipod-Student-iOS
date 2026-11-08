@@ -355,8 +355,7 @@ struct AddByPhoneSheet: View {
             Text("הוספת חבר/ה לפי טלפון").font(.heebo(22, 900)).foregroundStyle(Theme.ink)
             Text("נשלח בקשת חברות למי שכבר באפליקציה עם המספר הזה.").font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
             LugiFieldBox(label: "מספר טלפון", focused: focused) {
-                TextField("050-123-4567", text: $phone).keyboardType(.numberPad).font(.heebo(20, 600).monospacedDigit())
-                    .environment(\.layoutDirection, .leftToRight).multilineTextAlignment(.leading).focused($focused)
+                PhoneField(phone: $phone, focused: $focused)
                     .onChange(of: phone) { _, new in let f = Phone.format(new); if f != new { phone = f } }
             }
             if let message { Text(message).font(.heebo(14, 700)).foregroundStyle(Theme.brand700) }

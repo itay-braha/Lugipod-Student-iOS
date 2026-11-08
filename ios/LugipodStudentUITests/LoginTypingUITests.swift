@@ -1,0 +1,60 @@
+import XCTest
+
+/// Drives the real app on a simulator the way a first-time user does: opens it, taps the phone box, types with the keyboard, and checks (and
+/// photographs) what is on screen. Added after testers reported that the digits they typed in the sign-up phone box could not be seen.
+final class LoginTypingUITests: XCTestCase {
+    private func shoot(_ app: XCUIApplication, _ name: String) {
+        let shot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: shot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        let dir = URL(fileURLWithPath: "/tmp/lugipod-ui")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? shot.pngRepresentation.write(to: dir.appendingPathComponent("\(name).png"))
+    }
+
+    private func launch() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launch()
+        return app
+    }
+
+    func testTypedPhoneNumberIsVisibleAndFormatted() throws {
+        let app = launch()
+        let input = app.textFields["phone-input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 30), "the phone box is on the first screen")
+        shoot(app, "ui-1-empty")
+
+        input.tap()
+        input.typeText("0501234567")
+        let shown = app.staticTexts["phone-display"]
+        XCTAssertTrue(shown.waitForExistence(timeout: 5), "typed digits are drawn on screen")
+        XCTAssertEqual(shown.label, "050-123-4567")
+        shoot(app, "ui-2-typed-with-zero")
+    }
+
+    func testTypingWithoutTheLeadingZeroShowsTheZero() throws {
+        let app = launch()
+        let input = app.textFields["phone-input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 30))
+        input.tap()
+        input.typeText("501234567")
+        let shown = app.staticTexts["phone-display"]
+        XCTAssertTrue(shown.waitForExistence(timeout: 5))
+        XCTAssertEqual(shown.label, "050-123-4567")
+        shoot(app, "ui-3-typed-without-zero")
+    }
+
+    func testEmailFallbackFieldsShowWhatIsTyped() throws {
+        let app = launch()
+        XCTAssertTrue(app.buttons["כניסה עם אימייל במקום"].waitForExistence(timeout: 30))
+        app.buttons["כניסה עם אימייל במקום"].tap()
+        let email = app.textFields["email-input"]
+        XCTAssertTrue(email.waitForExistence(timeout: 10))
+        email.tap()
+        email.typeText("tester@example.com")
+        XCTAssertEqual(email.value as? String, "tester@example.com")
+        shoot(app, "ui-4-email")
+    }
+}
