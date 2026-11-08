@@ -97,10 +97,6 @@ struct LoginView: View {
         VStack(spacing: 16) {
             LugiFieldBox(label: "מספר טלפון", focused: focused) {
                 PhoneField(phone: $phone, focused: $focused)
-                    .onChange(of: phone) { _, new in
-                        let f = Phone.format(new)
-                        if f != new { phone = f }
-                    }
             }
             Text(Phone.isValid(phone) ? "נשלח קוד בוואטסאפ למספר \(Phone.international(phone))" : "אפשר להקליד עם 0 או בלי, כמו שנוח")
                 .font(.heebo(13, 600)).foregroundStyle(Phone.isValid(phone) ? Theme.emerald700 : Theme.slate500)
@@ -223,6 +219,16 @@ struct PhoneField: View {
         .environment(\.layoutDirection, .leftToRight)
         .contentShape(Rectangle())
         .onTapGesture { focused.wrappedValue = true }
+        // The text the keyboard holds is never rewritten while someone types normally (rewriting under the keyboard lost keystrokes, e.g. typing
+        // "5…" without the zero): the display is just `Phone.format` of it, and everything that uses the number goes through `Phone.digits`.
+        .onChange(of: phone) { old, new in
+            if new.count - old.count > 1 {                                  // pasted or auto-filled: tidy once ("+972 50-123-4567" → 0501234567)
+                let tidy = Phone.digits(new)
+                if tidy != new { phone = tidy }
+            } else if new.count > old.count, Phone.digits(new) == Phone.digits(old) {
+                phone = old                                                 // an eleventh digit (or a stray character) changes nothing: drop it
+            }
+        }
     }
 }
 

@@ -385,7 +385,6 @@ struct ParentSheet: View {
                 .font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
             LugiFieldBox(label: "מספר וואטסאפ של ההורה", focused: focused) {
                 PhoneField(phone: $phone, focused: $focused)
-                    .onChange(of: phone) { _, new in let f = Phone.format(new); if f != new { phone = f } }
             }
             if let error { Text(error).font(.heebo(13, 600)).foregroundStyle(Theme.rose600) }
             Button { Task { await save() } } label: { HStack { if busy { ProgressView().tint(.white) }; Text("שמירה") } }

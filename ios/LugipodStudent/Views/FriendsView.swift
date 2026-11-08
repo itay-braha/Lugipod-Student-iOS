@@ -356,7 +356,6 @@ struct AddByPhoneSheet: View {
             Text("נשלח בקשת חברות למי שכבר באפליקציה עם המספר הזה.").font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
             LugiFieldBox(label: "מספר טלפון", focused: focused) {
                 PhoneField(phone: $phone, focused: $focused)
-                    .onChange(of: phone) { _, new in let f = Phone.format(new); if f != new { phone = f } }
             }
             if let message { Text(message).font(.heebo(14, 700)).foregroundStyle(Theme.brand700) }
             Button { Task { busy = true; message = await send(Phone.digits(phone)) ?? "הבקשה נשלחה ✓ (אם המספר באפליקציה)"; busy = false } } label: {

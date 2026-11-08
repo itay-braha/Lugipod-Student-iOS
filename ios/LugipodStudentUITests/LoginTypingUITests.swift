@@ -47,6 +47,10 @@ final class LoginTypingUITests: XCTestCase {
         XCTAssertTrue(shown.waitForExistence(timeout: 5))
         XCTAssertEqual(shown.label, "050-123-4567")
         shoot(app, "ui-3-typed-without-zero")
+        input.typeText("99")                                  // more digits than a number has change nothing
+        XCTAssertEqual(shown.label, "050-123-4567")
+        input.typeText(XCUIKeyboardKey.delete.rawValue)       // and backspace takes the last digit off
+        XCTAssertEqual(shown.label, "050-123-456")
     }
 
     func testEmailFallbackFieldsShowWhatIsTyped() throws {
