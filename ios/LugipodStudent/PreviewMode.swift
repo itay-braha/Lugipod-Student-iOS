@@ -16,11 +16,16 @@ enum PreviewMode {
         case "lugichat", "lugichat-thread", "lugichat-limit": return .lugichat
         case "daily", "daily-answered": return .practice
         case "more", "availability", "history", "profile": return .more
-        case "friends", "peer": return .friends
+        case "friends", "peer", "invite": return .friends
         case "celebrate", "coins": return .practice
         default: return nil
         }
     }
+
+    /// Diagnostics for CI screenshots: what the first loads did.
+    @MainActor static var trace = ""
+    @MainActor static func log(_ s: String) { trace += s + "
+" }
 
     static var opensAlerts: Bool { screen == "alerts" }
 

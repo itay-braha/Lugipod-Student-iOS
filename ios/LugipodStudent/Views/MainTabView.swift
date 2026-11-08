@@ -61,8 +61,14 @@ final class HomeModel: ObservableObject {
     func load() async {
         loading = true
         defer { loading = false }
+        #if DEBUG
+        PreviewMode.log("home: start")
+        #endif
         do {
             let raw = try await API.request("GET", "/api/native/student/home")
+            #if DEBUG
+            PreviewMode.log("home: got (raw.count) bytes")
+            #endif
             data = try API.decoder.decode(StudentHome.self, from: raw)
             LocalCache.write("home", raw)
             error = nil
@@ -73,6 +79,9 @@ final class HomeModel: ObservableObject {
             await AuthStore.shared.signOut()
         } catch {
             // Keep showing what we have; only say something when there is nothing to show.
+            #if DEBUG
+            PreviewMode.log("home: ERROR (error)")
+            #endif
             if data == nil { self.error = "לא הצלחנו לטעון את הנתונים. בדקו חיבור ונסו שוב." }
         }
     }
@@ -152,6 +161,9 @@ struct MainTabView: View {
         .environmentObject(chat)
         .environmentObject(friends)
         .overlay { CelebrationHost(center: celebration) }
+        #if DEBUG
+        .overlay(alignment: .bottom) { if PreviewMode.isOn { TimelineView(.periodic(from: .now, by: 0.5)) { _ in Text(PreviewMode.trace).font(.system(size: 11)).foregroundStyle(.red) }.padding(.bottom, 120) } }
+        #endif
         // Lugis were spent (a lesson was charged): a few coins float up, so spending is felt, never silent.
         .onChange(of: home.data?.consumption.consumedLugis) { old, new in
             guard let old, let new, new > old + 0.01, scenePhase == .active else { return }
