@@ -27,30 +27,41 @@ final class LoginTypingUITests: XCTestCase {
         shoot(app, "ui-1-empty")
 
         input.tap()
-        input.typeText("0501")
+        input.typeText("501")
         let shown = app.staticTexts["phone-display"]
         XCTAssertTrue(shown.waitForExistence(timeout: 5), "typed digits are drawn on screen")
-        XCTAssertEqual(shown.label, "050-1")                 // the dash appears by itself
+        XCTAssertEqual(shown.label, "50-1")                  // the dash appears by itself
         shoot(app, "ui-2a-typing")
         input.typeText("234567")
-        XCTAssertEqual(shown.label, "050-123-4567")
-        shoot(app, "ui-2-typed-with-zero")
+        XCTAssertEqual(shown.label, "50-123-4567")
+        shoot(app, "ui-2-typed")
     }
 
-    func testTypingWithoutTheLeadingZeroShowsTheZero() throws {
+    func testLeadingZeroAndExtraDigitsAreIgnored() throws {
         let app = launch()
         let input = app.textFields["phone-input"]
         XCTAssertTrue(input.waitForExistence(timeout: 30))
         input.tap()
-        input.typeText("501234567")
+        input.typeText("0501234567")                          // someone who types the 0 anyway
         let shown = app.staticTexts["phone-display"]
         XCTAssertTrue(shown.waitForExistence(timeout: 5))
-        XCTAssertEqual(shown.label, "050-123-4567")
-        shoot(app, "ui-3-typed-without-zero")
+        XCTAssertEqual(shown.label, "50-123-4567")
+        shoot(app, "ui-3-typed-with-zero-ignored")
         input.typeText("99")                                  // more digits than a number has change nothing
-        XCTAssertEqual(shown.label, "050-123-4567")
+        XCTAssertEqual(shown.label, "50-123-4567")
         input.typeText(XCUIKeyboardKey.delete.rawValue)       // and backspace takes the last digit off
-        XCTAssertEqual(shown.label, "050-123-456")
+        XCTAssertEqual(shown.label, "50-123-456")
+    }
+
+    func testAnotherFirstDigitIsRefused() throws {
+        let app = launch()
+        let input = app.textFields["phone-input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 30))
+        input.tap()
+        input.typeText("3")                                   // not a mobile number: nothing appears
+        XCTAssertFalse(app.staticTexts["phone-display"].waitForExistence(timeout: 2))
+        input.typeText("52")
+        XCTAssertEqual(app.staticTexts["phone-display"].label, "52")
     }
 
     func testEmailFallbackFieldsShowWhatIsTyped() throws {

@@ -98,10 +98,12 @@ struct LoginView: View {
             LugiFieldBox(label: "מספר טלפון", focused: focused) {
                 PhoneField(phone: $phone, focused: $focused)
             }
-            Text(Phone.isValid(phone) ? "נשלח קוד בוואטסאפ למספר \(Phone.international(phone))" : "אפשר להקליד עם 0 או בלי, כמו שנוח")
-                .font(.heebo(13, 600)).foregroundStyle(Phone.isValid(phone) ? Theme.emerald700 : Theme.slate500)
-                .environment(\.layoutDirection, .rightToLeft)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if Phone.isValid(phone) {
+                Text("נשלח קוד בוואטסאפ למספר \(Phone.international(phone))")
+                    .font(.heebo(13, 600)).foregroundStyle(Theme.emerald700)
+                    .environment(\.layoutDirection, .rightToLeft)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             Button { Task { await sendCode() } } label: {
                 HStack(spacing: 8) {
                     if busy { ProgressView().tint(.white) }
@@ -182,34 +184,32 @@ struct PhoneField: View {
     @Binding var phone: String
     var focused: FocusState<Bool>.Binding
 
-    private static let template = Array("05•-•••-••••")
     private static let ink = Color(red: 0.06, green: 0.09, blue: 0.16)
-    private var digitFont: Font { .system(size: 22, weight: .semibold).monospacedDigit() }
+    private var digitFont: Font { .system(size: 25, weight: .medium).monospacedDigit() }
 
     var body: some View {
-        let typed = Phone.format(phone)
-        let rest = String(Self.template.dropFirst(typed.count))
+        let typed = Phone.national(phone)
         ZStack(alignment: .leading) {
             TextField("", text: $phone)
                 .keyboardType(.numberPad).textContentType(.telephoneNumber)
                 .focused(focused)
                 .opacity(0.02)
-                .frame(maxWidth: .infinity, minHeight: 54)
+                .frame(maxWidth: .infinity, minHeight: 56)
                 .accessibilityIdentifier("phone-input")
                 .accessibilityLabel("מספר טלפון")
-            HStack(spacing: 10) {
-                HStack(spacing: 6) {
-                    Text("🇮🇱").font(.system(size: 24))
-                    Text("+972").font(.system(size: 14, weight: .bold).monospacedDigit()).foregroundStyle(Theme.slate600)
+            HStack(spacing: 12) {
+                HStack(spacing: 7) {
+                    Text("🇮🇱").font(.system(size: 26))
+                    Text("+972").font(.system(size: 21, weight: .medium).monospacedDigit()).foregroundStyle(Self.ink)
                 }
-                Rectangle().fill(Theme.slate200).frame(width: 1, height: 28)
+                Rectangle().fill(Theme.slate200).frame(width: 1, height: 30)
                 HStack(spacing: 1) {
                     if !typed.isEmpty {
                         Text(typed).font(digitFont).foregroundStyle(Self.ink)
                             .accessibilityIdentifier("phone-display")
                     }
                     if focused.wrappedValue { Caret() }
-                    Text(rest).font(digitFont).foregroundStyle(Theme.slate300)
+                    if typed.isEmpty { Text("50-123-4567").font(digitFont).foregroundStyle(Theme.slate300) }   // the usual light placeholder, gone with the first digit
                 }
                 .lineLimit(1).minimumScaleFactor(0.7)
                 Spacer(minLength: 0)
@@ -219,17 +219,11 @@ struct PhoneField: View {
         .environment(\.layoutDirection, .leftToRight)
         .contentShape(Rectangle())
         .onTapGesture { focused.wrappedValue = true }
-        // The text the keyboard holds is never rewritten while someone types normally (rewriting under the keyboard lost keystrokes, e.g. typing
-        // "5…" without the zero): the display is just `Phone.format` of it, and everything that uses the number goes through `Phone.digits`.
+        // Only the nine digits after +972 are typed, the first is always 5 (`Phone.sanitizeTyped`). Ordinary typing is never rewritten under the
+        // keyboard (that lost keystrokes); a refused key (a 0 or another first digit), extra digits and a paste are the only things tidied.
         .onChange(of: phone) { old, new in
-            let plain = new.allSatisfy { $0 >= "0" && $0 <= "9" }
-            if !plain || new.count - old.count >= 8 {                       // pasted or auto-filled ("+972 50-123-4567", "٠٥٠…"): tidy once
-                let tidy = Phone.digits(new)
-                if tidy != new { phone = tidy }
-            } else if new.count > (new.hasPrefix("5") ? 9 : 10) {           // more digits than a number has: the extra keystroke changes nothing
-                phone = String(new.prefix(new.hasPrefix("5") ? 9 : 10))
-            }
-            // (two fast keystrokes can arrive in one change, so a jump of 2 or 3 characters is normal typing and is never rewritten)
+            let s = Phone.sanitizeTyped(old: old, new: new)
+            if s != new { phone = s }
         }
     }
 }

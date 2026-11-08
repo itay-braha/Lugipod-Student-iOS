@@ -148,6 +148,28 @@ final class AppLogicTests: XCTestCase {
         XCTAssertFalse(Phone.isValid("05012345"))
     }
 
+    func testPhoneBoxTakesNineDigitsStartingWithFive() {
+        XCTAssertEqual(Phone.national("501234567"), "50-123-4567")
+        XCTAssertEqual(Phone.national("5"), "5")
+        XCTAssertEqual(Phone.national("5012"), "50-12")
+        XCTAssertEqual(Phone.national(""), "")
+        // typing: 0 and other first digits are refused, extra digits ignored
+        XCTAssertEqual(Phone.sanitizeTyped(old: "", new: "0"), "")
+        XCTAssertEqual(Phone.sanitizeTyped(old: "", new: "3"), "")
+        XCTAssertEqual(Phone.sanitizeTyped(old: "", new: "05"), "5")
+        XCTAssertEqual(Phone.sanitizeTyped(old: "", new: "5"), "5")
+        XCTAssertEqual(Phone.sanitizeTyped(old: "50", new: "501"), "501")
+        XCTAssertEqual(Phone.sanitizeTyped(old: "5012", new: "501234"), "501234")          // two keystrokes in one change are normal typing
+        XCTAssertEqual(Phone.sanitizeTyped(old: "501234567", new: "5012345679"), "501234567")
+        // paste / auto-fill, however it is written
+        for pasted in ["0501234567", "501234567", "050-123-4567", "+972 50-123-4567", "972501234567", "00972501234567", "٠٥٠١٢٣٤٥٦٧"] {
+            XCTAssertEqual(Phone.sanitizeTyped(old: "", new: pasted), "501234567", pasted)
+        }
+        XCTAssertEqual(Phone.sanitizeTyped(old: "", new: "0412345678"), "")                 // a landline is not accepted
+        XCTAssertTrue(Phone.isValid("501234567"))
+        XCTAssertEqual(Phone.e164("501234567"), "+972501234567")
+    }
+
     func testOtpMessagesDistinguishWrongCodeFromNoConnection() {
         XCTAssertTrue(AuthStore.otpMessage(for: URLError(.notConnectedToInternet)).contains("אין חיבור"))
         struct E: Error, CustomStringConvertible { let description: String }

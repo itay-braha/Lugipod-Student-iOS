@@ -52,6 +52,29 @@ enum Phone {
         return out
     }
 
+    /// What the phone box shows after the fixed "+972": the nine digits that follow, as 50-123-4567 (dashes appear by themselves).
+    static func national(_ raw: String) -> String {
+        var out = ""
+        for (i, ch) in digits(raw).dropFirst().enumerated() {
+            if i == 2 || i == 5 { out.append("-") }
+            out.append(ch)
+        }
+        return out
+    }
+
+    /// The rule for the phone box: people type only the nine digits after +972, and the first one is always 5 (an Israeli mobile number).
+    /// A leading 0 is never accepted, any other first digit is refused, extra digits are ignored, and a pasted or auto-filled number
+    /// ("+972 50-123-4567", "0501234567", "٥٠…") is tidied once into those nine digits. Ordinary typing is returned unchanged (so the
+    /// keyboard's text is never rewritten under it); two fast keystrokes arriving together are ordinary typing.
+    static func sanitizeTyped(old: String, new: String) -> String {
+        let plain = new.allSatisfy { $0 >= "0" && $0 <= "9" }
+        var t = new
+        if !plain || new.count - old.count >= 8 { t = String(digits(new).dropFirst(digits(new).hasPrefix("0") ? 1 : 0)) }
+        t = String(t.drop(while: { $0 == "0" }))
+        if let first = t.first, first != "5" { return "" }
+        return String(t.prefix(9))
+    }
+
     static func isValid(_ raw: String) -> Bool {
         let d = digits(raw)
         return d.count == 10 && d.hasPrefix("05")
