@@ -24,8 +24,7 @@ enum PreviewMode {
 
     /// Diagnostics for CI screenshots: what the first loads did.
     @MainActor static var trace = ""
-    @MainActor static func log(_ s: String) { trace += s + "
-" }
+    @MainActor static func log(_ s: String) { trace += s + " | " }
 
     static var opensAlerts: Bool { screen == "alerts" }
 
