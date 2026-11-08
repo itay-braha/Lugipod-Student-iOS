@@ -96,19 +96,11 @@ struct LoginView: View {
     private var phoneStep: some View {
         VStack(spacing: 16) {
             LugiFieldBox(label: "מספר טלפון", focused: focused) {
-                HStack(spacing: 10) {
-                    // The country is always visible, so nobody wonders whether to type +972 (or can lose a digit to it).
-                    HStack(spacing: 5) {
-                        Text("🇮🇱").font(.system(size: 20))
-                        Text("+972").font(.heebo(16, 800).monospacedDigit()).foregroundStyle(Theme.slate600)
+                PhoneField(phone: $phone, focused: $focused)
+                    .onChange(of: phone) { _, new in
+                        let f = Phone.format(new)
+                        if f != new { phone = f }
                     }
-                    PhoneField(phone: $phone, focused: $focused)
-                        .onChange(of: phone) { _, new in
-                            let f = Phone.format(new)
-                            if f != new { phone = f }
-                        }
-                }
-                .environment(\.layoutDirection, .leftToRight)      // +972 on the left of the digits, the way a number reads
             }
             Text(Phone.isValid(phone) ? "נשלח קוד בוואטסאפ למספר \(Phone.international(phone))" : "אפשר להקליד עם 0 או בלי, כמו שנוח")
                 .font(.heebo(13, 600)).foregroundStyle(Phone.isValid(phone) ? Theme.emerald700 : Theme.slate500)
@@ -186,14 +178,21 @@ struct LoginView: View {
     }
 }
 
-/// The phone number box. The keyboard talks to an invisible text field, and what the person sees is drawn by us: a plain system-font `Text`
-/// in solid ink on white, so what they type can never turn out invisible (the way the code boxes below already work), with our own caret and
-/// the grey example shown only while the box is empty.
+/// The phone number box, drawn by us: the Israeli flag and +972 on the left, then the number as a template that fills in as you type
+/// ("05•-•••-••••": the 05 is already there in grey, dashes appear by themselves, each digit you press turns solid ink).
+/// The keyboard talks to an invisible text field; what the person sees is plain system-font `Text` in solid colours with our own caret,
+/// so what they type can never turn out invisible (the way the code boxes below already work).
 struct PhoneField: View {
     @Binding var phone: String
     var focused: FocusState<Bool>.Binding
 
+    private static let template = Array("05•-•••-••••")
+    private static let ink = Color(red: 0.06, green: 0.09, blue: 0.16)
+    private var digitFont: Font { .system(size: 22, weight: .semibold).monospacedDigit() }
+
     var body: some View {
+        let typed = Phone.format(phone)
+        let rest = String(Self.template.dropFirst(typed.count))
         ZStack(alignment: .leading) {
             TextField("", text: $phone)
                 .keyboardType(.numberPad).textContentType(.telephoneNumber)
@@ -202,19 +201,21 @@ struct PhoneField: View {
                 .frame(maxWidth: .infinity, minHeight: 54)
                 .accessibilityIdentifier("phone-input")
                 .accessibilityLabel("מספר טלפון")
-            HStack(spacing: 1) {
-                if phone.isEmpty {
-                    if focused.wrappedValue { Caret() }
-                    Text("050-123-4567")
-                        .font(.system(size: 22, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(Theme.slate400)
-                } else {
-                    Text(phone)
-                        .font(.system(size: 22, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
-                        .accessibilityIdentifier("phone-display")
-                    if focused.wrappedValue { Caret() }
+            HStack(spacing: 10) {
+                HStack(spacing: 6) {
+                    Text("🇮🇱").font(.system(size: 24))
+                    Text("+972").font(.system(size: 14, weight: .bold).monospacedDigit()).foregroundStyle(Theme.slate600)
                 }
+                Rectangle().fill(Theme.slate200).frame(width: 1, height: 28)
+                HStack(spacing: 1) {
+                    if !typed.isEmpty {
+                        Text(typed).font(digitFont).foregroundStyle(Self.ink)
+                            .accessibilityIdentifier("phone-display")
+                    }
+                    if focused.wrappedValue { Caret() }
+                    Text(rest).font(digitFont).foregroundStyle(Theme.slate300)
+                }
+                .lineLimit(1).minimumScaleFactor(0.7)
                 Spacer(minLength: 0)
             }
             .allowsHitTesting(false)

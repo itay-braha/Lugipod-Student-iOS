@@ -27,9 +27,12 @@ final class LoginTypingUITests: XCTestCase {
         shoot(app, "ui-1-empty")
 
         input.tap()
-        input.typeText("0501234567")
+        input.typeText("0501")
         let shown = app.staticTexts["phone-display"]
         XCTAssertTrue(shown.waitForExistence(timeout: 5), "typed digits are drawn on screen")
+        XCTAssertEqual(shown.label, "050-1")                 // the dash appears by itself
+        shoot(app, "ui-2a-typing")
+        input.typeText("234567")
         XCTAssertEqual(shown.label, "050-123-4567")
         shoot(app, "ui-2-typed-with-zero")
     }
