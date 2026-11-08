@@ -102,14 +102,10 @@ struct PeerSheet: View {
 
 struct FriendsView: View {
     @EnvironmentObject private var model: FriendsModel
-    @State private var scope: Scope = .group
-    @State private var metric: Metric = .streak
     @State private var peer: Peer?
     @State private var showPhone = false
+    @State private var showInvite = false
     @State private var note: String?
-
-    private enum Scope: String, CaseIterable { case group = "הקבוצה שלי", friends = "החברים שלי" }
-    private enum Metric: String, CaseIterable { case streak = "🔥 רצף", points = "⭐ נקודות" }
 
     var body: some View {
         ScrollView {
@@ -118,7 +114,6 @@ struct FriendsView: View {
                 VStack(spacing: 16) {
                     if let note { Text(note).font(.heebo(14, 700)).foregroundStyle(Theme.brand700).frame(maxWidth: .infinity, alignment: .leading) }
                     requests
-                    controls
                     boards
                 }
                 .frame(maxWidth: 640)
@@ -134,6 +129,7 @@ struct FriendsView: View {
             await model.load()
             #if DEBUG
             if PreviewMode.screen == "peer" { peer = model.data?.groups.first?.members.first }
+            if PreviewMode.screen == "invite" { showInvite = true }
             #endif
         }
         .sheet(item: $peer) { p in
@@ -143,6 +139,11 @@ struct FriendsView: View {
                 .presentationDetents([.fraction(0.62)])
                 .presentationDragIndicator(.visible)
                 .environment(\.layoutDirection, .rightToLeft)
+        }
+        .sheet(isPresented: $showInvite) {
+            if let invite = model.data?.invite {
+                InviteSheet(invite: invite).presentationDetents([.large]).presentationDragIndicator(.visible).environment(\.layoutDirection, .rightToLeft)
+            }
         }
         .sheet(isPresented: $showPhone) {
             AddByPhoneSheet { phone in await model.act(["action": "phone", "phone": phone]) }
@@ -159,13 +160,13 @@ struct FriendsView: View {
                 Text("🤝").font(.system(size: 30))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("חברים").font(.heebo(26, 900)).foregroundStyle(.white)
-                    Text("מתחרים ברצף ובנקודות, ולומדים יחד").font(.heebo(13, 700)).foregroundStyle(.white.opacity(0.92))
+                    Text("מי חבר/ה שלכם, כמה נקודות ומה שיא הרצף").font(.heebo(13, 700)).foregroundStyle(.white.opacity(0.92))
                 }
                 Spacer()
             }
             HStack(spacing: 10) {
-                if let invite = model.data?.invite {
-                    ShareLink(item: invite.text) { Label("הזמנת חברים", systemImage: "square.and.arrow.up") }
+                if model.data?.invite != nil {
+                    Button { showInvite = true } label: { Label("הזמנת חברים · 10 לוגי 🎁", systemImage: "gift.fill") }
                         .buttonStyle(SoftButtonStyle(fg: Theme.orange700, bg: .white))
                 }
                 Button { showPhone = true } label: { Label("הוספה לפי טלפון", systemImage: "phone.fill") }
@@ -206,45 +207,25 @@ struct FriendsView: View {
         }
     }
 
-    // MARK: Segment controls
-
-    private var controls: some View {
-        VStack(spacing: 10) {
-            segmented(Scope.allCases, selection: $scope) { $0.rawValue }
-            segmented(Metric.allCases, selection: $metric) { $0.rawValue }
-        }
-    }
-
-    private func segmented<T: Hashable>(_ items: [T], selection: Binding<T>, label: @escaping (T) -> String) -> some View {
-        HStack(spacing: 6) {
-            ForEach(items, id: \.self) { item in
-                let on = selection.wrappedValue == item
-                Button { withAnimation(.easeOut(duration: 0.15)) { selection.wrappedValue = item } } label: {
-                    Text(label(item)).font(.heebo(14, on ? 900 : 700)).foregroundStyle(on ? .white : Theme.brand700)
-                        .frame(maxWidth: .infinity).padding(.vertical, 10)
-                        .background(on ? AnyShapeStyle(Theme.indigoButton) : AnyShapeStyle(Theme.brand50), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    // MARK: Leaderboards
+    // MARK: The list: everyone you are friends with, plus (below) classmates you could add
 
     @ViewBuilder private var boards: some View {
         if let data = model.data {
-            if scope == .group {
-                if data.groups.isEmpty {
-                    EmptyState(pose: .sit, title: "עוד אין קבוצה", message: "כשתשובצו לקבוצה, תוכלו להתחרות כאן עם מי שלומד איתכם.")
-                }
-                ForEach(data.groups) { g in
-                    board(title: g.title, people: g.members.map { var p = $0; p.isFriend = model.friendIds.contains(p.id); return p }, me: data.me)
-                }
-            } else {
-                if data.friends.isEmpty {
-                    friendsEmpty
-                } else {
-                    board(title: "החברים שלי", people: data.friends, me: data.me)
+            if data.friends.isEmpty { friendsEmpty }
+            else { board(title: "החברים שלי", people: data.friends, me: data.me) }
+            let mates = classmates(data)
+            if !mates.isEmpty {
+                VStack(spacing: 10) {
+                    SectionTitle(text: "לומדים איתכם בקבוצה", count: mates.count)
+                    VStack(spacing: 0) {
+                        ForEach(Array(mates.enumerated()), id: \.element.id) { i, p in
+                            Button { peer = p } label: { row(rank: nil, p, isMe: false) }.buttonStyle(.plain)
+                            if i < mates.count - 1 { Divider().padding(.horizontal, 14) }
+                        }
+                    }
+                    .card(padding: 4, radius: 22)
+                    Text("לוחצים על מישהו כדי לראות את הנקודות והשיא שלו, ולהוסיף אותו לחברים.")
+                        .font(.heebo(12, 600)).foregroundStyle(Theme.slate500).frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         } else if let error = model.error {
@@ -254,26 +235,33 @@ struct FriendsView: View {
         }
     }
 
+    /// People in my groups who are not (yet) friends, each once.
+    private func classmates(_ data: FriendsResponse) -> [Peer] {
+        var seen = Set(data.friends.map(\.id)); if let me = data.me { seen.insert(me.id) }
+        var out: [Peer] = []
+        for g in data.groups { for m in g.members where !seen.contains(m.id) { seen.insert(m.id); out.append(m) } }
+        return out.sorted { $0.points > $1.points }
+    }
+
     private var friendsEmpty: some View {
         VStack(spacing: 12) {
             Lugi(pose: .wave, height: 120)
             Text("עוד אין חברים באפליקציה").font(.heebo(20, 900)).foregroundStyle(Theme.ink)
-            Text("הזמינו חברים וצאו לדרך: מי יחזיק רצף ארוך יותר? אפשר גם להוסיף מי שלומד איתכם בקבוצה, בלחיצה עליו.")
+            Text("הזמינו חברים ותראו כאן את הנקודות ואת שיא הרצף של כל אחד. אפשר גם להוסיף מי שלומד איתכם בקבוצה, בלחיצה עליו.")
                 .font(.heebo(14, 600)).foregroundStyle(Theme.slate600).multilineTextAlignment(.center)
-            if let invite = model.data?.invite {
-                ShareLink(item: invite.text) { Label("הזמנת חברים", systemImage: "square.and.arrow.up") }.buttonStyle(CTAButtonStyle())
+            if model.data?.invite != nil {
+                Button { showInvite = true } label: { Label("הזמנת חברים · 10 לוגי 🎁", systemImage: "gift.fill") }.buttonStyle(CTAButtonStyle())
             }
         }
         .frame(maxWidth: .infinity)
         .card(padding: 20, radius: 26)
     }
 
-    private func value(_ p: Peer) -> Int { metric == .streak ? p.streak : p.points }
-
+    /// Me and my friends, most points first.
     private func board(title: String, people: [Peer], me: Peer?) -> some View {
-        let all = ((me.map { [$0] } ?? []) + people).sorted { value($0) > value($1) }
+        let all = ((me.map { [$0] } ?? []) + people).sorted { $0.points > $1.points }
         return VStack(spacing: 10) {
-            SectionTitle(text: title)
+            SectionTitle(text: title, count: people.count)
             VStack(spacing: 0) {
                 ForEach(Array(all.enumerated()), id: \.element.id) { i, p in
                     Button { peer = p } label: { row(rank: i + 1, p, isMe: p.id == me?.id) }.buttonStyle(.plain)
@@ -284,24 +272,73 @@ struct FriendsView: View {
         }
     }
 
-    private func row(rank: Int, _ p: Peer, isMe: Bool) -> some View {
+    /// Icon, name, points and the highest streak ever.
+    private func row(rank: Int?, _ p: Peer, isMe: Bool) -> some View {
         HStack(spacing: 12) {
-            Text(rank == 1 ? "🥇" : rank == 2 ? "🥈" : rank == 3 ? "🥉" : "\(rank)")
-                .font(.heebo(rank <= 3 ? 22 : 15, 900)).foregroundStyle(Theme.slate500).frame(width: 30)
-            AvatarView(name: p.name, avatar: p.avatar, frame: p.frame, size: 44)
+            if let rank {
+                Text(rank == 1 ? "🥇" : rank == 2 ? "🥈" : rank == 3 ? "🥉" : "\(rank)")
+                    .font(.heebo(rank <= 3 ? 22 : 15, 900)).foregroundStyle(Theme.slate500).frame(width: 30)
+            }
+            AvatarView(name: p.name, avatar: p.avatar, frame: p.frame, size: 46)
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(isMe ? "\(p.name) (אתם)" : p.name).font(.heebo(16, 800)).foregroundStyle(Theme.ink).lineLimit(1)
-                }
+                Text(isMe ? "\(p.name) (אתם)" : p.name).font(.heebo(16, 800)).foregroundStyle(Theme.ink).lineLimit(1)
                 if let t = p.title { TitleChip(title: t) }
             }
             Spacer(minLength: 6)
-            Text(metric == .streak ? "🔥 \(p.streak)" : "⭐ \(p.points)")
-                .font(.heebo(18, 900)).foregroundStyle(metric == .streak ? Theme.orange600 : Theme.brand700)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("⭐ \(p.points)").font(.heebo(17, 900)).foregroundStyle(Theme.brand700)
+                Text("🔥 שיא \(p.highestStreak)").font(.heebo(12, 800)).foregroundStyle(Theme.orange600)
+            }
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
         .background(isMe ? Theme.brand50 : .clear, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .contentShape(Rectangle())
+    }
+}
+
+/// What tapping "הזמנת חברים" shows first: the deal, then the share sheet. 10 לוגי (₪200) after the friend's 4 full lessons.
+struct InviteSheet: View {
+    let invite: FriendsResponse.Invite
+    @Environment(\.dismiss) private var dismiss
+    @State private var copied = false
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 18) {
+                FoxCoin(size: 96).padding(.top, 8)
+                VStack(spacing: 6) {
+                    Text("הזמינו חבר/ה וקבלו 10 לוגי").font(.heebo(26, 900)).foregroundStyle(Theme.ink).multilineTextAlignment(.center)
+                    Text("200 ₪ ✨*").font(.heebo(20, 900)).foregroundStyle(Theme.orange600)
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    step("1", "שולחים לחבר/ה את הקישור שלכם")
+                    step("2", "הוא/היא מצטרפים ומסיימים 4 שיעורים מלאים")
+                    step("3", "אתם מקבלים 10 לוגי (200 ₪) זיכוי בחשבון החודשי, והוא תקף לשנה")
+                }
+                .card(padding: 16, radius: 22)
+                Text("* אם החבר/ה נהנים מהנחה במסגרת ארגון או בית ספר, הסכום יותאם בהתאם.")
+                    .font(.heebo(12, 600)).foregroundStyle(Theme.slate500).multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
+                ShareLink(item: invite.text) { Label("שליחת ההזמנה", systemImage: "square.and.arrow.up") }.buttonStyle(CTAButtonStyle())
+                Button {
+                    UIPasteboard.general.string = invite.link; copied = true
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                } label: { Label(copied ? "הקישור הועתק ✓" : "העתקת הקישור", systemImage: "link") }
+                    .buttonStyle(SoftButtonStyle(fg: Theme.brand700, bg: Theme.brand100))
+                Button("סגירה") { dismiss() }.font(.heebo(14, 700)).foregroundStyle(Theme.slate500)
+            }
+            .frame(maxWidth: 520)
+            .padding(.horizontal, 20).padding(.vertical, 22)
+            .frame(maxWidth: .infinity)
+        }
+        .background(ScreenBackground())
+    }
+
+    private func step(_ n: String, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(n).font(.heebo(15, 900)).foregroundStyle(.white).frame(width: 30, height: 30).background(Theme.orange500, in: Circle())
+            Text(text).font(.heebo(15, 700)).foregroundStyle(Theme.slate700).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
     }
 }
 

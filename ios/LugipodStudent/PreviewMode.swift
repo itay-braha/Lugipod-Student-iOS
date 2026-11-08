@@ -2,7 +2,7 @@ import Foundation
 
 /// A development aid: `LUGIPOD_PREVIEW=<screen>` (an environment variable, set by CI through `simctl launch`) makes a DEBUG build
 /// skip sign-in and show a screen with sample data, so every screen can be screenshotted in the simulator without a server.
-/// Screens: friends, peer, profile, history, availability, home-limit, celebrate, coins, post-lesson, post-lesson-encore, call, login, login-code, login-email, home, home-parent, group, ask, lugichat, lugichat-thread, lugichat-limit, daily, daily-answered, more, alerts.
+/// Screens: friends, invite, peer, profile, history, availability, home-limit, celebrate, coins, post-lesson, post-lesson-encore, call, login, login-code, login-email, home, home-parent, group, ask, lugichat, lugichat-thread, lugichat-limit, daily, daily-answered, more, alerts.
 /// Release builds (TestFlight) compile this away: `isOn` is always false there.
 enum PreviewMode {
     #if DEBUG
