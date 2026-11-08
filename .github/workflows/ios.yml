@@ -70,6 +70,10 @@ jobs:
         run: |
           set -o pipefail
           rm -rf /tmp/lugipod-ui
+          # Placeholder connection settings (no real secrets): without them the app shows its "not configured" screen instead of the login.
+          # Typing needs no network; the file is removed again right after.
+          printf "SUPABASE_PROJECT_HOST = ci-placeholder.invalid\nSUPABASE_PUBLISHABLE_KEY = ci-placeholder-key\n" > ios/Config/Secrets.xcconfig
+          trap 'rm -f ios/Config/Secrets.xcconfig' EXIT
           xcrun simctl uninstall "${{ steps.sim.outputs.udid }}" com.itaybraha.lugipod >/dev/null 2>&1 || true
           xcodebuild test \
             -project ios/LugipodStudent.xcodeproj -scheme LugipodStudentUI \
