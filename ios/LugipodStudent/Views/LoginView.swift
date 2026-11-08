@@ -12,6 +12,7 @@ struct LoginView: View {
     @State private var busy = false
     @State private var error: String?
     @State private var cooldown = 0
+    @State private var submitted = ""
     @State private var showEmail = false
     @FocusState private var focused: Bool
 
@@ -96,7 +97,12 @@ struct LoginView: View {
         VStack(spacing: 16) {
             LugiFieldBox(label: "מספר טלפון", focused: focused) {
                 HStack(spacing: 10) {
-                    Text("🇮🇱").font(.system(size: 22))
+                    // The country is always visible, so nobody wonders whether to type +972 (or can lose a digit to it).
+                    HStack(spacing: 5) {
+                        Text("🇮🇱").font(.system(size: 20))
+                        Text("+972").font(.heebo(16, 800).monospacedDigit()).foregroundStyle(Theme.slate600)
+                    }
+                    .environment(\.layoutDirection, .leftToRight)
                     TextField("050-123-4567", text: $phone)
                         .keyboardType(.numberPad).textContentType(.telephoneNumber)
                         .font(.heebo(21, 600).monospacedDigit())
@@ -109,6 +115,10 @@ struct LoginView: View {
                         }
                 }
             }
+            Text(Phone.isValid(phone) ? "נשלח קוד בוואטסאפ למספר \(Phone.international(phone))" : "אפשר להקליד עם 0 או בלי, כמו שנוח")
+                .font(.heebo(13, 600)).foregroundStyle(Phone.isValid(phone) ? Theme.emerald700 : Theme.slate500)
+                .environment(\.layoutDirection, .rightToLeft)
+                .frame(maxWidth: .infinity, alignment: .leading)
             Button { Task { await sendCode() } } label: {
                 HStack(spacing: 8) {
                     if busy { ProgressView().tint(.white) }
@@ -156,18 +166,22 @@ struct LoginView: View {
         } catch { self.error = error.localizedDescription }
     }
 
+    /// Checks the code once. A code is single-use, so the same six digits are never sent twice (a second tap or a re-typed code would fail
+    /// with "expired" even though the first try got the person in), and if the server already signed this device in, that counts as success.
     private func verify() async {
-        guard !busy, code.count == 6 else { return }
+        guard !busy, code.count == 6, code != submitted else { return }
+        submitted = code
         busy = true; error = nil
         defer { busy = false }
         do { try await auth.verify(phone: phone, code: code) } catch {
-            self.error = "הקוד שגוי או שפג תוקפו. בדקו ונסו שוב."
-            code = ""
+            if await auth.adoptExistingSession() { return }
+            self.error = AuthStore.otpMessage(for: error)
+            code = ""; submitted = ""
         }
     }
 
     private func startCooldown() {
-        cooldown = 30
+        cooldown = 45
         Task {
             while cooldown > 0 {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)

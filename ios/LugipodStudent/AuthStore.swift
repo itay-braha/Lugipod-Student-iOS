@@ -59,6 +59,26 @@ final class AuthStore: ObservableObject {
     func verify(phone: String, code: String) async throws {
         notice = nil
         _ = try await client.auth.verifyOTP(phone: Phone.e164(phone), token: code, type: .sms)
+        state = .signedIn            // do not wait for the SDK's event: the person is in the moment the code was accepted
+    }
+
+    /// True when this device already holds a session (the server accepted the code even though the call reported a problem).
+    func adoptExistingSession() async -> Bool {
+        guard (try? await client.auth.session) != nil else { return false }
+        state = .signedIn
+        return true
+    }
+
+    /// What to tell the person when the code did not work: a wrong/used code, no connection, or something else, never one message for all.
+    nonisolated static func otpMessage(for error: Error) -> String {
+        let t = String(describing: error).lowercased()
+        if t.contains("otp_expired") || t.contains("expired or is invalid") || t.contains("invalid") {
+            return "הקוד לא התקבל. הקלידו את הקוד האחרון שנשלח אליכם בוואטסאפ, או בקשו חדש בעוד רגע."
+        }
+        if error is URLError || t.contains("offline") || t.contains("timed out") || t.contains("network") {
+            return "אין חיבור לאינטרנט כרגע. בדקו את החיבור ונסו שוב. הקוד עדיין תקף."
+        }
+        return "משהו השתבש בכניסה. נסו שוב בעוד רגע."
     }
 
     func signIn(email: String, password: String) async throws {

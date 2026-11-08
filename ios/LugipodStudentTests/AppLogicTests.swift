@@ -135,6 +135,25 @@ final class AppLogicTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(seen.count, 4)          // the same fox does not greet every right answer
     }
 
+    func testPhoneIsNormalisedWhateverIsTyped() {
+        for typed in ["0501234567", "501234567", "050-123-4567", "+972 50-123-4567", "972501234567", "00972501234567", "٠٥٠١٢٣٤٥٦٧"] {
+            XCTAssertEqual(Phone.digits(typed), "0501234567", typed)
+            XCTAssertTrue(Phone.isValid(typed), typed)
+            XCTAssertEqual(Phone.e164(typed), "+972501234567", typed)
+        }
+        XCTAssertEqual(Phone.format("5"), "05")                      // typing 5 first shows 05, nothing is lost
+        XCTAssertEqual(Phone.format("0501"), "050-1")
+        XCTAssertEqual(Phone.international("0501234567"), "+972 50-123-4567")
+        XCTAssertFalse(Phone.isValid("0412345678"))
+        XCTAssertFalse(Phone.isValid("05012345"))
+    }
+
+    func testOtpMessagesDistinguishWrongCodeFromNoConnection() {
+        XCTAssertTrue(AuthStore.otpMessage(for: URLError(.notConnectedToInternet)).contains("אין חיבור"))
+        struct E: Error, CustomStringConvertible { let description: String }
+        XCTAssertTrue(AuthStore.otpMessage(for: E(description: "token has expired or is invalid")).contains("הקוד לא התקבל"))
+    }
+
     func testHebrewMonthLabel() {
         XCTAssertEqual(HebrewDate.monthYear("2026-11"), "נובמבר 2026")
         XCTAssertEqual(HebrewDate.monthYear(nil), "")
