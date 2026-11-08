@@ -107,6 +107,7 @@ struct LoginView: View {
                         .font(.heebo(21, 600).monospacedDigit())
                         .environment(\.layoutDirection, .leftToRight)
                         .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .focused($focused)
                         .onChange(of: phone) { _, new in
                             let f = Phone.format(new)
