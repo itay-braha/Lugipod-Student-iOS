@@ -79,6 +79,7 @@ jobs:
             SIMCTL_CHILD_LUGIPOD_PREVIEW="$2" SIMCTL_CHILD_LUGIPOD_ORIENT="$3" xcrun simctl launch "$UDID" "$BUNDLE" >/dev/null
             sleep 7
             xcrun simctl io "$UDID" screenshot "shots/$1.png"
+            case "$1" in 03-home|22-friends|27-friends-list) PID=$(pgrep -f "LugipodStudent.app/LugipodStudent" | head -1); [ -n "$PID" ] && sample "$PID" 2 -file "shots/$1.sample.txt" >/dev/null 2>&1 || true ;; esac
           }
           shoot 01-login login portrait
           shoot 02-login-code login-code portrait

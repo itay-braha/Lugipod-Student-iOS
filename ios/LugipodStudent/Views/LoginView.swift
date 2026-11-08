@@ -102,7 +102,6 @@ struct LoginView: View {
                         Text("🇮🇱").font(.system(size: 20))
                         Text("+972").font(.heebo(16, 800).monospacedDigit()).foregroundStyle(Theme.slate600)
                     }
-                    .environment(\.layoutDirection, .leftToRight)
                     TextField("050-123-4567", text: $phone)
                         .keyboardType(.numberPad).textContentType(.telephoneNumber)
                         .font(.heebo(21, 600).monospacedDigit())
@@ -114,6 +113,7 @@ struct LoginView: View {
                             if f != new { phone = f }
                         }
                 }
+                .environment(\.layoutDirection, .leftToRight)      // +972 on the left of the digits, the way a number reads
             }
             Text(Phone.isValid(phone) ? "נשלח קוד בוואטסאפ למספר \(Phone.international(phone))" : "אפשר להקליד עם 0 או בלי, כמו שנוח")
                 .font(.heebo(13, 600)).foregroundStyle(Phone.isValid(phone) ? Theme.emerald700 : Theme.slate500)
