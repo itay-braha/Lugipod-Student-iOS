@@ -222,12 +222,14 @@ struct PhoneField: View {
         // The text the keyboard holds is never rewritten while someone types normally (rewriting under the keyboard lost keystrokes, e.g. typing
         // "5…" without the zero): the display is just `Phone.format` of it, and everything that uses the number goes through `Phone.digits`.
         .onChange(of: phone) { old, new in
-            if new.count - old.count > 1 {                                  // pasted or auto-filled: tidy once ("+972 50-123-4567" → 0501234567)
+            let plain = new.allSatisfy { $0 >= "0" && $0 <= "9" }
+            if !plain || new.count - old.count >= 8 {                       // pasted or auto-filled ("+972 50-123-4567", "٠٥٠…"): tidy once
                 let tidy = Phone.digits(new)
                 if tidy != new { phone = tidy }
-            } else if new.count > old.count, Phone.digits(new) == Phone.digits(old) {
-                phone = old                                                 // an eleventh digit (or a stray character) changes nothing: drop it
+            } else if new.count > (new.hasPrefix("5") ? 9 : 10) {           // more digits than a number has: the extra keystroke changes nothing
+                phone = String(new.prefix(new.hasPrefix("5") ? 9 : 10))
             }
+            // (two fast keystrokes can arrive in one change, so a jump of 2 or 3 characters is normal typing and is never rewritten)
         }
     }
 }
