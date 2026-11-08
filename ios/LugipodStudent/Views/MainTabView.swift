@@ -70,6 +70,9 @@ final class HomeModel: ObservableObject {
             PreviewMode.log("home: got " + String(raw.count))
             #endif
             data = try API.decoder.decode(StudentHome.self, from: raw)
+            #if DEBUG
+            PreviewMode.log("home: decoded " + String(data?.groups.count ?? -1))
+            #endif
             LocalCache.write("home", raw)
             error = nil
             encore = await Rebook.active()
@@ -162,7 +165,7 @@ struct MainTabView: View {
         .environmentObject(friends)
         .overlay { CelebrationHost(center: celebration) }
         #if DEBUG
-        .overlay(alignment: .bottom) { if PreviewMode.isOn { TimelineView(.periodic(from: .now, by: 0.5)) { _ in Text(PreviewMode.trace).font(.system(size: 11)).foregroundStyle(.red) }.padding(.bottom, 120) } }
+        .overlay(alignment: .bottom) { if PreviewMode.isOn { TimelineView(.periodic(from: .now, by: 0.5)) { _ in Text(PreviewMode.trace + Date().formatted(date: .omitted, time: .standard)).font(.system(size: 11)).foregroundStyle(.red) }.padding(.bottom, 120) } }
         #endif
         // Lugis were spent (a lesson was charged): a few coins float up, so spending is felt, never silent.
         .onChange(of: home.data?.consumption.consumedLugis) { old, new in
