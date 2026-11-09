@@ -129,6 +129,8 @@ struct MainTabView: View {
     @StateObject private var friends = FriendsModel()
     @EnvironmentObject private var celebration: CelebrationCenter
     @Environment(\.scenePhase) private var scenePhase
+    /// Set once the welcome tour has been shown (finished or skipped). "עוד" can open it again.
+    @AppStorage("lugipod.tour.v1") private var tourSeen = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -159,8 +161,22 @@ struct MainTabView: View {
             let spent = new - old
             celebration.coins("−\(spent == spent.rounded() ? String(Int(spent)) : String(format: "%.1f", spent)) לוגי")
         }
+        .fullScreenCover(isPresented: $router.showTour) {
+            TourView(hasParent: home.data?.family.hasParent ?? false) { _ in
+                tourSeen = true
+                router.showTour = false
+                Task { await home.load() }
+            }
+        }
         .task {
             await refresh()
+            // First launch: the tour, once the home is known (so it knows whether a parent is already linked).
+            #if DEBUG
+            let skipTour = PreviewMode.isOn || AuthStore.autologin != nil
+            #else
+            let skipTour = false
+            #endif
+            if !tourSeen, !skipTour, home.data != nil { router.showTour = true }
             #if DEBUG
             if PreviewMode.screen == "celebrate" { celebration.fox("כל הכבוד!", subtitle: "שמרת על הרצף · +5 נקודות", pose: .cheer, big: true) }
             if PreviewMode.screen == "coins" { celebration.coins("−2 לוגי") }

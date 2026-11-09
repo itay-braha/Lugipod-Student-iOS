@@ -24,6 +24,8 @@ struct MoreView: View {
                         divider
                         row("person.3.fill", "הקבוצות והשיעורים", detail: "כל הפרטים באתר", color: Theme.orange500) { router.open(path: "/dashboard") }
                         divider
+                        row("sparkles.rectangle.stack.fill", "סיור היכרות", detail: "לוגי מראה איך הכל עובד", color: Theme.violet500) { router.showTour = true }
+                        divider
                         row("lifepreserver.fill", "תמיכה", color: Color(hex: 0x0EA5E9)) { router.open(path: "/support") }
                         divider
                         row("hand.raised.fill", "פרטיות", color: Theme.violet500) { router.open(path: "/privacy") }

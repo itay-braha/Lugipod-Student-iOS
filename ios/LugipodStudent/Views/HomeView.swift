@@ -63,6 +63,18 @@ struct HomeView: View {
         .sheet(isPresented: $showRewards) {
             RewardsSheet().presentationDetents([.large]).presentationDragIndicator(.visible).environment(\.layoutDirection, .rightToLeft)
         }
+        // The reminder alert / push "link a parent" lands here. Nothing to do if an adult is already linked.
+        .onChange(of: router.showParentLink) { _, wanted in
+            guard wanted else { return }
+            router.showParentLink = false
+            if model.data?.family.hasParent != true { showParent = true }
+        }
+        .onAppear {
+            if router.showParentLink {
+                router.showParentLink = false
+                if model.data?.family.hasParent != true { showParent = true }
+            }
+        }
         .sheet(isPresented: $showParent) {
             ParentSheet { Task { await model.load() } }
                 .presentationDetents([.medium])

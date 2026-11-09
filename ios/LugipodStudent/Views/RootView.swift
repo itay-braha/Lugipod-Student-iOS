@@ -12,6 +12,9 @@ struct RootView: View {
             LessonCallScreen(path: "/meeting/lesson/preview")
                 .environment(\.layoutDirection, .rightToLeft)
                 .task { call.loadPreview() }
+        } else if PreviewMode.screen?.hasPrefix("tour") == true {
+            // Screenshots only: the welcome tour on its own (tour-0 ... tour-3, tour-parent = the card that asks for a parent's number).
+            TourViewPreview()
         } else if PreviewMode.screen == "invite" {
             // Screenshots only: the invite sheet on its own.
             InviteSheet(invite: .init(link: "https://lugipod.com/r/2ebe1b55", text: "")).environment(\.layoutDirection, .rightToLeft)
@@ -83,3 +86,14 @@ struct SetupMissingView: View {
         }
     }
 }
+
+#if DEBUG
+/// Screenshots only: the tour opened on a chosen card, with no server.
+struct TourViewPreview: View {
+    private var start: Int {
+        let name = PreviewMode.screen ?? ""
+        return name == "tour-parent" ? 4 : Int(name.dropFirst(5)) ?? 0
+    }
+    var body: some View { TourView(hasParent: false, startPage: start) { _ in } }
+}
+#endif

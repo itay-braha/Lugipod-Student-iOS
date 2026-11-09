@@ -373,26 +373,40 @@ struct AskTeacherSheet: View {
 struct ParentSheet: View {
     var onSaved: () -> Void
     @Environment(\.dismiss) private var dismiss
-    @State private var phone = ""
-    @State private var busy = false
-    @State private var error: String?
-    @FocusState private var focused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("חיבור הורה").font(.heebo(22, 800)).foregroundStyle(Theme.ink)
             Text("נשלח להורה הודעת וואטסאפ עם עדכונים על השיעורים והצריכה.")
                 .font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
+            ParentLinkForm(autoFocus: true) { onSaved(); dismiss() }
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+    }
+}
+
+/// The parent's (or another adult's) WhatsApp number and the save button. Used by the sheet and by the app tour. Saving only needs a valid
+/// number: the adult does not have to create an account.
+struct ParentLinkForm: View {
+    var autoFocus = false
+    var onSaved: () -> Void
+    @State private var phone = ""
+    @State private var busy = false
+    @State private var error: String?
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
             LugiFieldBox(label: "מספר וואטסאפ של ההורה", focused: focused) {
                 PhoneField(phone: $phone, focused: $focused)
             }
             if let error { Text(error).font(.heebo(13, 600)).foregroundStyle(Theme.rose600) }
             Button { Task { await save() } } label: { HStack { if busy { ProgressView().tint(.white) }; Text("שמירה") } }
                 .buttonStyle(PrimaryButtonStyle()).disabled(!Phone.isValid(phone) || busy)
-            Spacer(minLength: 0)
+                .accessibilityIdentifier("parent-save")
         }
-        .padding(20)
-        .onAppear { focused = true }
+        .onAppear { if autoFocus { focused = true } }
     }
 
     private func save() async {
@@ -400,8 +414,8 @@ struct ParentSheet: View {
         defer { busy = false }
         do {
             _ = try await API.request("POST", "/api/native/student/parent", json: ["phone": Phone.digits(phone)])
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
             onSaved()
-            dismiss()
         } catch APIError.server(_, let message) where !message.isEmpty {
             error = message
         } catch { self.error = "לא הצלחנו לשמור. נסו שוב." }

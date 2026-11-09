@@ -226,4 +226,9 @@ final class AppLogicTests: XCTestCase {
         }
         XCTAssertEqual(APIError.notAStudent.errorDescription, text)
     }
+
+    func testLinkParentReminderOpensTheParentSheet() {
+        XCTAssertEqual(AppRouter.destination(for: "/link-parent"), .linkParent)
+        XCTAssertEqual(AppRouter.destination(for: "/alerts"), .alerts)
+    }
 }
