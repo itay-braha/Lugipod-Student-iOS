@@ -102,7 +102,7 @@ jobs:
 
             # 2) preview-mode screens that need no account
             xcrun simctl install "$UDID" "$APP"
-            for S in lugichat-thread daily daily-answered celebrate coins profile tour-0 tour-1 tour-2 tour-3 tour-parent; do
+            for S in lugichat-thread daily daily-answered celebrate coins profile tour-0 tour-1 tour-2 tour-3 tour-parent lugichat-limit; do
               xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
               SIMCTL_CHILD_LUGIPOD_PREVIEW="$S" xcrun simctl launch "$UDID" "$BUNDLE" >/dev/null
               sleep 8
