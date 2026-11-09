@@ -192,12 +192,36 @@ final class LugichatModel: ObservableObject {
             "mimeType": "image/jpeg",
             "messages": thread.map { ["role": $0.role == .student ? "student" : "bot", "body": $0.body] },
         ]
+        // The tutor's words appear while they are written (server-sent events); the closing event carries the complete answer and the
+        // quota and replaces what was streamed. A failed turn takes the half-written answer back.
+        var streamedIndex: Int?
+        var streamed = ""
+        var finished: (answer: String, quota: Quota?)?
+        var streamError: (status: Int, message: String)?
         do {
-            let data = try await API.request("POST", "/api/student/guided-solve", json: payload, timeout: 75)
-            let reply = try API.decoder.decode(Reply.self, from: data)
-            messages.append(ChatMessage(role: .bot, body: reply.answer))
-            save(role: "bot", body: reply.answer, imageBase64: nil)
-            if let q = reply.quota { quota = q }
+            try await API.stream("/api/student/guided-solve", json: payload) { [self] event in
+                switch event["t"] as? String {
+                case "delta":
+                    streamed += event["text"] as? String ?? ""
+                    if let i = streamedIndex { messages[i].body = streamed }
+                    else { messages.append(ChatMessage(role: .bot, body: streamed)); streamedIndex = messages.count - 1 }
+                case "done":
+                    var q: Quota?
+                    if let qo = event["quota"], JSONSerialization.isValidJSONObject(qo), let d = try? JSONSerialization.data(withJSONObject: qo) {
+                        q = try? API.decoder.decode(Quota.self, from: d)
+                    }
+                    finished = (event["answer"] as? String ?? "", q)
+                case "error":
+                    streamError = (event["status"] as? Int ?? 502, event["error"] as? String ?? "")
+                default: break
+                }
+            }
+            if let i = streamedIndex, finished == nil { messages.remove(at: i); streamedIndex = nil }
+            if let e = streamError { throw APIError.server(e.status, e.message) }
+            guard let finished, !finished.answer.isEmpty else { throw APIError.server(502, "") }
+            if let i = streamedIndex { messages[i].body = finished.answer } else { messages.append(ChatMessage(role: .bot, body: finished.answer)) }
+            save(role: "bot", body: finished.answer, imageBase64: nil)
+            if let q = finished.quota { quota = q }
         } catch APIError.server(let status, _) where status == 402 {
             limitHit = true
             quota = Quota(freeLeft: 0, freePerDay: nil, packLeft: 0, canAsk: false)
@@ -208,11 +232,8 @@ final class LugichatModel: ObservableObject {
         } catch {
             self.error = "לא הצלחנו לקבל תשובה. בדקו חיבור ונסו שוב."
         }
-    }
-
-    private struct Reply: Decodable {
-        let answer: String
-        let quota: Quota?
+        // a turn that failed (also a connection lost halfway) takes back the half-written answer
+        if error != nil || limitHit, finished == nil, let i = streamedIndex, i < messages.count, messages[i].role == .bot { messages.remove(at: i) }
     }
 
     /// Longest side 1600 px, JPEG: sharp enough to read handwriting, small enough to send over mobile data.

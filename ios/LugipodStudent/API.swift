@@ -75,6 +75,54 @@ enum API {
         throw APIError.server(status, message)
     }
 
+    /// A POST whose answer arrives as server-sent events (`data: {json}` lines separated by a blank line). Each event is handed to
+    /// `onEvent` as soon as it is complete, so Lugichat can show the tutor's words while they are written. Errors before the first
+    /// event (not signed in, daily limit) come back as a normal status + JSON body, exactly like `request`.
+    @MainActor static func stream(_ path: String, json: [String: Any], timeout: TimeInterval = 75, onEvent: ([String: Any]) -> Void) async throws {
+        #if DEBUG
+        if PreviewMode.isOn {
+            var obj = (try? JSONSerialization.jsonObject(with: PreviewMode.response(method: "POST", path: path))) as? [String: Any] ?? [:]
+            obj["t"] = "done"
+            onEvent(obj)
+            return
+        }
+        #endif
+        guard let url = URL(string: path, relativeTo: baseURL) else { throw APIError.badURL }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = timeout
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        req.httpBody = try JSONSerialization.data(withJSONObject: json)
+        let token = try await AuthStore.shared.accessToken()
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (bytes, resp) = try await URLSession.shared.bytes(for: req)
+        let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        let isStream = ((resp as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type") ?? "").contains("text/event-stream")
+        if !(200..<300).contains(status) || !isStream {
+            var data = Data()
+            for try await b in bytes { data.append(b) }
+            let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            let message = obj?["error"] as? String ?? ""
+            if (200..<300).contains(status), let obj { onEvent(obj.merging(["t": "done"]) { a, _ in a }); return }
+            if status == 401 { throw APIError.notSignedIn }
+            throw APIError.server(status, message)
+        }
+        // Events are separated by a blank line; lines are decoded as UTF-8 only once complete (Hebrew is multi-byte).
+        var buffer = Data()
+        for try await b in bytes {
+            buffer.append(b)
+            while let end = buffer.range(of: Data([0x0A, 0x0A])) {
+                let chunk = buffer.subdata(in: buffer.startIndex..<end.lowerBound)
+                buffer.removeSubrange(buffer.startIndex..<end.upperBound)
+                guard var line = String(data: chunk, encoding: .utf8) else { continue }
+                if line.hasPrefix("data: ") { line.removeFirst(6) }
+                if let obj = (try? JSONSerialization.jsonObject(with: Data(line.utf8))) as? [String: Any] { onEvent(obj) }
+            }
+        }
+    }
+
     static func post(_ path: String, json: [String: Any]) async throws -> Data {
         try await request("POST", path, json: json)
     }
