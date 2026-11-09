@@ -248,4 +248,18 @@ final class AppLogicTests: XCTestCase {
         XCTAssertFalse(AuthStore.emailLoginAllowed("lugipod@gmail.com"))
         XCTAssertFalse(AuthStore.emailLoginAllowed("x@lugipod.demo.evil.com"))
     }
+
+    /// The bug: copying a picture from WhatsApp and pasting it into Lugichat typed text ("blob") instead of attaching the picture.
+    func testPastingAPictureAttachesItInsteadOfTypingText() {
+        let view = PasteTextView()
+        var received: UIImage?
+        view.onImage = { received = $0 }
+        UIPasteboard.general.image = UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8)).image { ctx in
+            UIColor.red.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+        }
+        XCTAssertTrue(view.canPerformAction(#selector(UIResponderStandardEditActions.paste(_:)), withSender: nil))
+        view.paste(nil)
+        XCTAssertNotNil(received)
+        XCTAssertEqual(view.text, "")
+    }
 }

@@ -8,7 +8,7 @@ struct LugichatView: View {
     @State private var draft = ""
     @State private var showCamera = false
     @State private var pickerItem: PhotosPickerItem?
-    @FocusState private var typing: Bool
+    @State private var typing = false
 
     private var cameraAvailable: Bool { UIImagePickerController.isSourceTypeAvailable(.camera) }
 
@@ -247,9 +247,17 @@ struct LugichatView: View {
                         Button { showCamera = true } label: { attach("camera.fill") }.accessibilityLabel("צילום")
                     }
                     PhotosPicker(selection: $pickerItem, matching: .images) { attach("photo.fill") }.accessibilityLabel("תמונה מהגלריה")
-                    TextField("שאלו את לוגיפוקס…", text: $draft, axis: .vertical)
-                        .lineLimit(1...5).font(.heebo(16, 500)).focused($typing)
-                        .padding(.vertical, 10)
+                    ZStack(alignment: .leading) {
+                        if draft.isEmpty {
+                            Text("שאלו את לוגיפוקס…").font(.heebo(16, 500)).foregroundStyle(Theme.slate400)
+                                .allowsHitTesting(false).accessibilityHidden(true)
+                        }
+                        // Also takes a pasted picture (from WhatsApp, Photos...): it becomes the attached image, like in Messages.
+                        PasteAwareTextView(text: $draft, focused: $typing) { image in
+                            model.pending = image
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        }
+                    }
                     Button { submit() } label: {
                         Image(systemName: "arrow.up").font(.system(size: 16, weight: .bold)).foregroundStyle(.white)
                             .frame(width: 40, height: 40).background(canSend ? AnyShapeStyle(LinearGradient(colors: [Theme.violet500, Theme.brand600], startPoint: .top, endPoint: .bottom)) : AnyShapeStyle(Theme.slate300), in: Circle())
