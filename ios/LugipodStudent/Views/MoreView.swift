@@ -9,6 +9,7 @@ struct MoreView: View {
     @State private var showAvailability = false
     @State private var showHistory = false
     @State private var showProfile = false
+    @State private var showShareHowTo = false
 
     var body: some View {
         ScrollView {
@@ -25,6 +26,8 @@ struct MoreView: View {
                         row("person.3.fill", "הקבוצות והשיעורים", detail: "כל הפרטים באתר", color: Theme.orange500) { router.open(path: "/dashboard") }
                         divider
                         row("sparkles.rectangle.stack.fill", "סיור היכרות", detail: "לוגיפוקס מראה איך הכל עובד", color: Theme.violet500) { router.showTour = true }
+                        divider
+                        row("square.and.arrow.up.fill", "שליחת תמונה ללוגיפוד", detail: "מוואטסאפ, מהגלריה ומכל אפליקציה", color: Theme.orange500) { showShareHowTo = true }
                         divider
                         row("lifepreserver.fill", "תמיכה", color: Color(hex: 0x0EA5E9)) { router.open(path: "/support") }
                         divider
@@ -73,6 +76,7 @@ struct MoreView: View {
         .sheet(isPresented: $showProfile) {
             ProfileSheet { Task { await home.load() } }.presentationDetents([.large]).presentationDragIndicator(.visible).environment(\.layoutDirection, .rightToLeft)
         }
+        .sheet(isPresented: $showShareHowTo) { ShareHowToSheet() }
     }
 
     private var header: some View {
