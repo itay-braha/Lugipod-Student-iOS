@@ -144,6 +144,11 @@ struct LugichatView: View {
                 .frame(maxWidth: .infinity)
             }
             .scrollDismissesKeyboard(.interactively)
+            // A saved conversation opens at its latest message, not at the top (the first scroll waits for the thread to be laid out).
+            .task {
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                proxy.scrollTo("end")
+            }
             .onChange(of: model.messages) { _, _ in withAnimation { proxy.scrollTo("end") } }
             .onChange(of: model.sending) { _, _ in withAnimation { proxy.scrollTo("end") } }
             .onChange(of: model.limitHit) { _, _ in withAnimation { proxy.scrollTo("end") } }
