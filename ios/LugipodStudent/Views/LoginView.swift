@@ -50,6 +50,9 @@ struct LoginView: View {
     private var card: some View {
         VStack(spacing: 0) {
             Lugi(pose: .wave, height: 150).padding(.top, 4)
+                // Email + password is for App Review and our own testing only (real students sign in with the WhatsApp code and have no
+                // password). It is not offered on screen: five quick taps on the fox open it, and the app refuses any other account.
+                .onTapGesture(count: 5) { showEmail = true }
             Wordmark(size: 34).padding(.top, 2)
             Text("לתלמידים")
                 .font(.heebo(13, 700)).foregroundStyle(Theme.brand700)
@@ -86,9 +89,14 @@ struct LoginView: View {
                     .padding(.top, 12)
             }
 
-            Button("כניסה עם אימייל במקום") { showEmail = true }
-                .font(.heebo(14, 700)).foregroundStyle(Theme.slate600)
-                .padding(.top, 20)
+            #if DEBUG
+            // UI tests only (LUGIPOD_SHOW_EMAIL=1): the visible link, so the typing tests can reach the email fields.
+            if ProcessInfo.processInfo.environment["LUGIPOD_SHOW_EMAIL"] == "1" {
+                Button("כניסה עם אימייל במקום") { showEmail = true }
+                    .font(.heebo(14, 700)).foregroundStyle(Theme.slate600)
+                    .padding(.top, 20)
+            }
+            #endif
         }
         .card(padding: 28, radius: 32)
     }
@@ -346,6 +354,8 @@ struct EmailLoginView: View {
         do {
             try await auth.signIn(email: email.trimmingCharacters(in: .whitespaces), password: password)
             dismiss()
+        } catch AuthStore.EmailLoginError.notAllowed {
+            self.error = "הכניסה באימייל אינה זמינה. היכנסו עם מספר הטלפון וקוד בוואטסאפ."
         } catch { self.error = "האימייל או הסיסמה שגויים." }
     }
 }

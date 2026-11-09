@@ -34,7 +34,7 @@ final class StoreShotsUITests: XCTestCase {
             return false
         }
         let app = XCUIApplication()
-        app.launch()
+        app.launchEnvironment["LUGIPOD_SHOW_EMAIL"] = "1"; app.launch()
 
         // Sign in with the review account's email and password (the quiet fallback on the first screen).
         let emailLink = app.buttons["כניסה עם אימייל במקום"]

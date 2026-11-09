@@ -240,4 +240,12 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(q.packDays, 14)
         XCTAssertEqual(q.remaining, 0)
     }
+
+    func testOnlyDemoAccountsMayUseThePasswordDoor() {
+        XCTAssertTrue(AuthStore.emailLoginAllowed("demo.student@lugipod.demo"))
+        XCTAssertTrue(AuthStore.emailLoginAllowed("  Demo.Student@Lugipod.Demo "))
+        XCTAssertFalse(AuthStore.emailLoginAllowed("student@gmail.com"))
+        XCTAssertFalse(AuthStore.emailLoginAllowed("lugipod@gmail.com"))
+        XCTAssertFalse(AuthStore.emailLoginAllowed("x@lugipod.demo.evil.com"))
+    }
 }

@@ -16,6 +16,7 @@ final class LoginTypingUITests: XCTestCase {
 
     private func launch() -> XCUIApplication {
         let app = XCUIApplication()
+        app.launchEnvironment["LUGIPOD_SHOW_EMAIL"] = "1"   // the email link is hidden in the real app (five taps on the fox)
         app.launch()
         return app
     }

@@ -109,7 +109,15 @@ final class AuthStore: ObservableObject {
         return "משהו השתבש בכניסה. נסו שוב בעוד רגע."
     }
 
+    enum EmailLoginError: Error { case notAllowed }
+
+    /// Email accounts that may use the password door (App Review and our own testing). Everyone else signs in with the phone and the WhatsApp code.
+    nonisolated static func emailLoginAllowed(_ email: String) -> Bool {
+        email.trimmingCharacters(in: .whitespaces).lowercased().hasSuffix("@lugipod.demo")
+    }
+
     func signIn(email: String, password: String) async throws {
+        guard Self.emailLoginAllowed(email) else { throw EmailLoginError.notAllowed }
         notice = nil
         _ = try await client.auth.signIn(email: email, password: password)
     }
