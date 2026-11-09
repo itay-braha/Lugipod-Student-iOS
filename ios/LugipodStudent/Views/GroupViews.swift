@@ -381,7 +381,7 @@ struct ParentSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("חיבור הורה").font(.heebo(22, 800)).foregroundStyle(Theme.ink)
-            Text("נשלח להורה הודעת וואטסאפ עם עדכונים על השיעורים והצריכה. ההורה גם מנהל את התשלום והתקרה החודשית.")
+            Text("נשלח להורה הודעת וואטסאפ עם עדכונים על השיעורים והצריכה.")
                 .font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
             LugiFieldBox(label: "מספר וואטסאפ של ההורה", focused: focused) {
                 PhoneField(phone: $phone, focused: $focused)

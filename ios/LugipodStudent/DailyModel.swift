@@ -67,7 +67,7 @@ final class DailyModel: ObservableObject {
         } catch APIError.notSignedIn {
             await AuthStore.shared.signOut()
         } catch APIError.notAStudent {
-            phase = .failed("החשבון הזה אינו חשבון תלמיד.")
+            await AuthStore.shared.signOut(notice: APIError.notAStudentNotice)
         } catch {
             if payload == nil { phase = .failed("לא הצלחנו לטעון את האתגר. בדקו חיבור ונסו שוב.") }
         }

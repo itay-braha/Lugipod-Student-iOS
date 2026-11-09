@@ -68,7 +68,7 @@ final class HomeModel: ObservableObject {
             error = nil
             encore = await Rebook.active()
         } catch APIError.notAStudent {
-            await AuthStore.shared.signOut(notice: "החשבון הזה אינו חשבון תלמיד. האפליקציה הזו מיועדת לתלמידים (למורים יש אפליקציה נפרדת).")
+            await AuthStore.shared.signOut(notice: APIError.notAStudentNotice)
         } catch APIError.notSignedIn {
             await AuthStore.shared.signOut()
         } catch {

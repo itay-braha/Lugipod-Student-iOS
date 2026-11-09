@@ -179,8 +179,6 @@ struct LugichatView: View {
             }
             Text("כל תשובה של לוגי היא עבודה אמיתית של מודל חכם, ולכן ההדרכה החינמית מוגבלת ביום. מחר בבוקר היא מתחדשת.")
                 .font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
-            Text("רוצים להמשיך עכשיו? חבילת לוגיצ׳אט נותנת 120 תשובות ל-14 ימים בעלות 2 לוגי, וההורים מפעילים אותה מאזור ההורים.")
-                .font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)

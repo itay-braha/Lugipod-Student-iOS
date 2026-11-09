@@ -217,4 +217,13 @@ final class AppLogicTests: XCTestCase {
         center.coins("−2 לוגי")
         XCTAssertEqual(center.coins?.text, "−2 לוגי")
     }
+    /// App Store 3.1.3(f): what a parent sees is plain information. It names the website for family accounts and carries no payment wording or link.
+    func testParentNoticeHasNoPaymentWordsOrLink() {
+        let text = APIError.notAStudentNotice
+        XCTAssertTrue(text.contains("lugipod.com"))
+        for word in ["תשלום", "לשלם", "מחיר", "מנוי", "₪", "רכיש", "חבילה", "https://", "http://"] {
+            XCTAssertFalse(text.contains(word), word)
+        }
+        XCTAssertEqual(APIError.notAStudent.errorDescription, text)
+    }
 }

@@ -48,7 +48,7 @@ struct DailyChallengeView: View {
         }
     }
 
-    /// What the challenge earns, always in view: every 10 days in a row is a gift lugi (one lugi less to pay, valid for a year).
+    /// What the challenge earns, always in view: every 10 days in a row is a gift lugi (one lugi comes off a lesson by itself, valid for a year).
     private var rewardsStrip: some View {
         let toGift = 10 - (model.streak % 10)
         return Button { showRewards = true } label: {

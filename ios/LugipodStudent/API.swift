@@ -4,11 +4,15 @@ enum APIError: LocalizedError {
     case badURL, notSignedIn, notAStudent
     case server(Int, String)
 
+    /// Shown on the login screen when a parent (or anyone who is not a student) signs in. Plain information only: the app is for students, and
+    /// family accounts live on the website. No prices, no plans, no payment words, no tappable link (App Store 3.1.3(f)).
+    static let notAStudentNotice = "האפליקציה הזו מיועדת לתלמידים. חשבונות של הורים מנוהלים באתר lugipod.com. (למורים יש אפליקציה נפרדת.)"
+
     var errorDescription: String? {
         switch self {
         case .badURL: return "תקלה פנימית"
         case .notSignedIn: return "יש להתחבר מחדש"
-        case .notAStudent: return "החשבון הזה אינו חשבון תלמיד"
+        case .notAStudent: return APIError.notAStudentNotice
         case .server(_, let m): return m.isEmpty ? "שגיאת שרת" : m
         }
     }
