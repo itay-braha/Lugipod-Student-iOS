@@ -95,7 +95,7 @@ struct DailyChallengeView: View {
             }
         case .empty:
             ScrollView {
-                EmptyState(pose: .search, title: "עדיין אין שאלות", message: "כשיהיו שאלות מתאימות למקצוע ולרמה שלכם הן יופיעו כאן. אפשר בינתיים לשאול את לוגי בלוגיצ׳אט.",
+                EmptyState(pose: .search, title: "עדיין אין שאלות", message: "כשיהיו שאלות מתאימות למקצוע ולרמה שלכם הן יופיעו כאן. אפשר בינתיים לשאול את לוגיפוקס בלוגיצ׳אט.",
                            actionTitle: "ללוגיצ׳אט") { router.tab = .lugichat }
                     .padding(20)
             }

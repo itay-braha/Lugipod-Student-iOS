@@ -182,7 +182,7 @@ struct LugichatView: View {
                 Lugi(pose: .nap, height: 58)
                 Text("עד כאן להיום בלי עלות").font(.heebo(18, 800)).foregroundStyle(Theme.ink)
             }
-            Text("כל תשובה של לוגי היא עבודה אמיתית של מודל חכם, ולכן התשובות החינמיות מוגבלות ביום. מחר בבוקר הן מתחדשות.")
+            Text("כל תשובה של לוגיפוקס היא עבודה אמיתית של מודל חכם, ולכן התשובות החינמיות מוגבלות ביום. מחר בבוקר הן מתחדשות.")
                 .font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
             VStack(alignment: .leading, spacing: 4) {
                 Text("רוצים להמשיך עכשיו?").font(.heebo(15, 800)).foregroundStyle(Theme.ink)
@@ -247,7 +247,7 @@ struct LugichatView: View {
                         Button { showCamera = true } label: { attach("camera.fill") }.accessibilityLabel("צילום")
                     }
                     PhotosPicker(selection: $pickerItem, matching: .images) { attach("photo.fill") }.accessibilityLabel("תמונה מהגלריה")
-                    TextField("שאלו את לוגי…", text: $draft, axis: .vertical)
+                    TextField("שאלו את לוגיפוקס…", text: $draft, axis: .vertical)
                         .lineLimit(1...5).font(.heebo(16, 500)).focused($typing)
                         .padding(.vertical, 10)
                     Button { submit() } label: {
@@ -310,7 +310,7 @@ struct TypingDots: View {
         }
         .padding(.vertical, 8)
         .onReceive(timer) { _ in phase = (phase + 1) % 3 }
-        .accessibilityLabel("לוגי חושב")
+        .accessibilityLabel("לוגיפוקס חושב")
     }
 }
 
