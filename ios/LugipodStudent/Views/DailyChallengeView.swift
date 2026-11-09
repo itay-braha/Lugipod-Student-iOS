@@ -88,14 +88,14 @@ struct DailyChallengeView: View {
             ProgressView().controlSize(.large).frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let message):
             ScrollView {
-                EmptyState(pose: .peek, title: "משהו לא נטען", message: message, actionTitle: "נסו שוב") {
+                EmptyState(pose: .shy, title: "משהו לא נטען", message: message, actionTitle: "נסו שוב") {
                     Task { await model.load() }
                 }
                 .padding(20)
             }
         case .empty:
             ScrollView {
-                EmptyState(pose: .sit, title: "עדיין אין שאלות", message: "כשיהיו שאלות מתאימות למקצוע ולרמה שלכם הן יופיעו כאן. אפשר בינתיים לשאול את לוגי בלוגיצ׳אט.",
+                EmptyState(pose: .search, title: "עדיין אין שאלות", message: "כשיהיו שאלות מתאימות למקצוע ולרמה שלכם הן יופיעו כאן. אפשר בינתיים לשאול את לוגי בלוגיצ׳אט.",
                            actionTitle: "ללוגיצ׳אט") { router.tab = .lugichat }
                     .padding(20)
             }
@@ -206,7 +206,7 @@ struct DailyChallengeView: View {
     private var finished: some View {
         ScrollView {
             VStack(spacing: 16) {
-                Lugi(pose: model.correctCount * 2 >= model.total ? .cheer : .proud, height: 150).padding(.top, 10)
+                Lugi(pose: model.correctCount == model.total ? .party : (model.correctCount * 2 >= model.total ? .joy : .proud), height: 150).padding(.top, 10)
                 Text("\(model.correctCount) מתוך \(model.total) נכונות").font(.heebo(26, 800)).foregroundStyle(Theme.ink)
                 Text(model.streak > 0 ? "הרצף שלכם: \(model.streak) ימים 🔥" : "מחר ממשיכים")
                     .font(.heebo(16, 600)).foregroundStyle(Theme.slate600)

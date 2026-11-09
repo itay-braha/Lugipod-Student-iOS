@@ -70,7 +70,7 @@ struct LugichatView: View {
         VStack(spacing: 18) {
             Spacer(minLength: 20)
             // The fox is who they are asking.
-            Lugi(pose: [.study, .wave, .sit, .wink][model.greetingSeed % 4], height: 150)
+            Lugi(pose: [.study, .wave, .search, .wink, .ponder, .sit][model.greetingSeed % 6], height: 150)
             Text(model.greeting(name: home.data?.student.name ?? ""))
                 .font(.heebo(30, 800)).foregroundStyle(Theme.ink).multilineTextAlignment(.center)
             Text("כתבו שאלה, או צלמו תרגיל. אני מדריך צעד אחר צעד.")
@@ -115,7 +115,7 @@ struct LugichatView: View {
                 VStack(spacing: 18) {
                     ForEach(model.messages) { m in row(m).id(m.id) }
                     if model.sending {
-                        HStack(spacing: 10) { FoxAvatar(); TypingDots() }.frame(maxWidth: .infinity, alignment: .leading).id("typing")
+                        HStack(spacing: 10) { Lugi(pose: .ponder, height: 52); TypingDots() }.frame(maxWidth: .infinity, alignment: .leading).id("typing")
                     }
                     if let error = model.error {
                         VStack(alignment: .leading, spacing: 8) {
@@ -178,8 +178,8 @@ struct LugichatView: View {
         let days = model.quota?.packDays ?? 14
         let lugisText = lugis == lugis.rounded() ? String(Int(lugis)) : String(format: "%.1f", lugis)
         return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "moon.stars.fill").foregroundStyle(Theme.violet500)
+            HStack(spacing: 10) {
+                Lugi(pose: .nap, height: 58)
                 Text("עד כאן להיום בלי עלות").font(.heebo(18, 800)).foregroundStyle(Theme.ink)
             }
             Text("כל תשובה של לוגי היא עבודה אמיתית של מודל חכם, ולכן התשובות החינמיות מוגבלות ביום. מחר בבוקר הן מתחדשות.")

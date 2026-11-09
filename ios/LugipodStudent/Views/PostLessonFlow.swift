@@ -95,7 +95,7 @@ struct PostLessonFlow: View {
             Color(hex: 0x0B1020).opacity(0.94).ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 16) {
-                    Lugi(pose: step == .feedback ? .peek : .cheer, height: 120).padding(.top, 24)
+                    Lugi(pose: step == .feedback ? .ponder : .joy, height: 120).padding(.top, 24)
                     switch step {
                     case .feedback: feedback
                     case .encore(let r): EncoreCardView(rebook: r) { onDone() }

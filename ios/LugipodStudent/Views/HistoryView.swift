@@ -156,7 +156,7 @@ struct HistoryView: View {
                 VStack(spacing: 12) {
                     if let lessons = model.lessons {
                         if lessons.isEmpty {
-                            EmptyState(pose: .sit, title: "עוד לא היו שיעורים", message: "אחרי השיעור הראשון תוכלו לראות כאן מה למדתם ולפתוח את הסיכומים של המורה.")
+                            EmptyState(pose: .wonder, title: "עוד לא היו שיעורים", message: "אחרי השיעור הראשון תוכלו לראות כאן מה למדתם ולפתוח את הסיכומים של המורה.")
                         }
                         ForEach(lessons) { l in item(l) }
                     } else if let e = model.error {

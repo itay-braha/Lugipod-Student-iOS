@@ -293,7 +293,7 @@ struct HomeView: View {
             parentCard(data)
             libraryTile
         } else if let error = model.error {
-            EmptyState(pose: .peek, title: "משהו לא נטען", message: error, actionTitle: "נסו שוב") { Task { await model.load() } }
+            EmptyState(pose: .shy, title: "משהו לא נטען", message: error, actionTitle: "נסו שוב") { Task { await model.load() } }
         } else {
             // First ever open: the shape of what is coming, not a spinner.
             ForEach(0..<2, id: \.self) { _ in
@@ -308,7 +308,7 @@ struct HomeView: View {
         VStack(spacing: 14) {
             SectionTitle(text: "הקבוצות שלי", count: groups.count)
             if groups.isEmpty {
-                EmptyState(pose: .sit, title: "עדיין אין קבוצה", message: "כשתשובצו לקבוצה, השיעורים שלכם יופיעו כאן.")
+                EmptyState(pose: .wonder, title: "עדיין אין קבוצה", message: "כשתשובצו לקבוצה, השיעורים שלכם יופיעו כאן.")
             } else {
                 ForEach(groups.prefix(shownGroups)) { g in
                     GroupCard(group: g,

@@ -229,7 +229,7 @@ struct FriendsView: View {
                 }
             }
         } else if let error = model.error {
-            EmptyState(pose: .peek, title: "משהו לא נטען", message: error, actionTitle: "נסו שוב") { Task { await model.load() } }
+            EmptyState(pose: .shy, title: "משהו לא נטען", message: error, actionTitle: "נסו שוב") { Task { await model.load() } }
         } else {
             ProgressView().padding(.top, 30)
         }
@@ -245,7 +245,7 @@ struct FriendsView: View {
 
     private var friendsEmpty: some View {
         VStack(spacing: 12) {
-            Lugi(pose: .wave, height: 120)
+            Lugi(pose: .phone2, height: 120)
             Text("עוד אין חברים באפליקציה").font(.heebo(20, 900)).foregroundStyle(Theme.ink)
             Text("הזמינו חברים ותראו כאן את הנקודות ואת שיא הרצף של כל אחד. אפשר גם להוסיף מי שלומד איתכם בקבוצה, בלחיצה עליו.")
                 .font(.heebo(14, 600)).foregroundStyle(Theme.slate600).multilineTextAlignment(.center)

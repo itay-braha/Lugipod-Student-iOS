@@ -316,6 +316,9 @@ struct Wordmark: View {
 
 enum LugiPose: String {
     case wave, sit, study, cheer, praise, peek, wink, proud, walk
+    // The second set (2026-11-09). Pick by occasion: search = looking for something, phone/phone2 = a number or a message, joy/leap = delight,
+    // ponder/wonder = thinking and curiosity, party = a real milestone, shy = something went wrong (never the student's fault), nap = rest.
+    case search, phone, phone2, joy, leap, ponder, wonder, party, shy, nap
 }
 
 /// Lugi the fox (illustrated, from the website's pose set), with a slow breathing motion.

@@ -94,7 +94,7 @@ final class CelebrationCenter: ObservableObject {
     /// The fox jumps in with a short cheer. Gone by itself after about two seconds, never in the way.
     /// Pass `pose: nil` and a different one is picked each time, so the same fox does not greet every right answer.
     func fox(_ title: String, subtitle: String? = nil, pose: LugiPose? = nil, big: Bool = false) {
-        let pool: [LugiPose] = big ? [.cheer, .proud, .praise] : [.praise, .wink, .proud, .cheer, .walk]
+        let pool: [LugiPose] = big ? [.cheer, .joy, .party, .leap, .proud, .praise] : [.praise, .joy, .wink, .leap, .proud, .cheer, .walk]
         poseTurn += 1
         let item = Fox(title: title, subtitle: subtitle, pose: pose ?? pool[poseTurn % pool.count], big: big)
         fox = item

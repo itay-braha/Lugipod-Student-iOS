@@ -16,10 +16,10 @@ struct AlertsView: View {
             }
 
             if inbox.alerts.isEmpty, inbox.loaded {
-                EmptyState(pose: .sit, title: "אין התראות", message: "כשיהיה משהו חדש, תראו אותו כאן ותקבלו הודעה.")
+                EmptyState(pose: .nap, title: "אין התראות", message: "כשיהיה משהו חדש, תראו אותו כאן ותקבלו הודעה.")
             } else if inbox.alerts.isEmpty {
                 if let error = inbox.error {
-                    EmptyState(pose: .peek, title: "משהו לא נטען", message: error, actionTitle: "נסו שוב") {
+                    EmptyState(pose: .shy, title: "משהו לא נטען", message: error, actionTitle: "נסו שוב") {
                         Task { await inbox.load() }
                     }
                 } else {

@@ -259,7 +259,7 @@ struct PastLessonsView: View {
             if model.loading && model.items.isEmpty {
                 ProgressView().padding(.top, 40)
             } else if model.items.isEmpty {
-                EmptyState(pose: .sit, title: "עוד לא היו שיעורים", message: "אחרי השיעור הראשון תוכלו לראות כאן מה למדתם ומה היה שיעורי הבית.")
+                EmptyState(pose: .wonder, title: "עוד לא היו שיעורים", message: "אחרי השיעור הראשון תוכלו לראות כאן מה למדתם ומה היה שיעורי הבית.")
             } else {
                 ForEach(model.items) { PastLessonRow(lesson: $0.lesson, groupTitle: $0.groupTitle) }
             }
@@ -376,7 +376,10 @@ struct ParentSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("חיבור הורה").font(.heebo(22, 800)).foregroundStyle(Theme.ink)
+            HStack(spacing: 12) {
+                Lugi(pose: .phone2, height: 70)
+                Text("חיבור הורה").font(.heebo(22, 800)).foregroundStyle(Theme.ink)
+            }
             Text("נשלח להורה הודעת וואטסאפ עם עדכונים על השיעורים והצריכה.")
                 .font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
             ParentLinkForm(autoFocus: true) { onSaved(); dismiss() }
