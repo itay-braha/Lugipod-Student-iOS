@@ -312,7 +312,7 @@ struct EmailLoginView: View {
                             SecureField("••••••••", text: $password)
                                 .textContentType(.password)
                                 .accessibilityIdentifier("password-input")
-                                .font(.heebo(17, 500))
+                                .font(.system(size: 18, weight: .medium))   // system font: its bullet glyph is always there (the custom font drew nothing for password dots)
                                 .foregroundStyle(Theme.ink)
                                 .environment(\.layoutDirection, .leftToRight)
                                 .focused($field, equals: .password)

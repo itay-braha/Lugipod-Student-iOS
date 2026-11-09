@@ -74,5 +74,9 @@ final class LoginTypingUITests: XCTestCase {
         email.typeText("tester@example.com")
         XCTAssertEqual(email.value as? String, "tester@example.com")
         shoot(app, "ui-4-email")
+        let secret = app.secureTextFields["password-input"]
+        secret.tap()
+        secret.typeText("hunter2hunter2")
+        shoot(app, "ui-4b-password")      // the dots must be visible
     }
 }

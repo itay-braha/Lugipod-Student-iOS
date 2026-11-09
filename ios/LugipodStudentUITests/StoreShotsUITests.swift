@@ -28,6 +28,11 @@ final class StoreShotsUITests: XCTestCase {
             throw XCTSkip("store screenshots run only in the Store screenshots workflow")
         }
         continueAfterFailure = true
+        // The system asks once for notification permission after sign-in: answer it so it never covers a screenshot.
+        addUIInterruptionMonitor(withDescription: "system alerts") { alert in
+            for name in ["Allow", "אפשר", "OK", "Don’t Allow"] where alert.buttons[name].exists { alert.buttons[name].tap(); return true }
+            return false
+        }
         let app = XCUIApplication()
         app.launch()
 
@@ -42,7 +47,11 @@ final class StoreShotsUITests: XCTestCase {
         let pass = app.secureTextFields["password-input"]
         pass.tap()
         pass.typeText(password)
+        shoot("00-before-login-tap")      // diagnostics: the password dots must be visible here
         app.buttons["כניסה"].firstMatch.tap()
+        sleep(6)
+        app.tap()                          // lets the interruption monitor answer a system alert
+        shoot("00-after-login-tap")
 
         // Home: the bottom bar appears, then the data.
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "לוגיצ׳אט")).firstMatch.waitForExistence(timeout: 60), "signed in")

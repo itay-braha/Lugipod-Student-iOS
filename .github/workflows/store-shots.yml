@@ -6,6 +6,10 @@ name: Store screenshots
 # Needs repository secrets SUPABASE_PROJECT_HOST, SUPABASE_PUBLISHABLE_KEY and APP_REVIEW_STUDENT_PASSWORD.
 on:
   workflow_dispatch:
+    inputs:
+      devices:
+        description: "iphone, ipad or both"
+        default: "iphone"
 
 env:
   XCODE_APP: /Applications/Xcode_26.6.app
@@ -75,6 +79,7 @@ jobs:
           APP=ios/.derived/Build/Products/Debug-iphonesimulator/LugipodStudent.app
           BUNDLE=com.itaybraha.lugipod
           for KIND in iphone ipad; do
+            case "${{ github.event.inputs.devices }}" in both) ;; "") [ "$KIND" = iphone ] || continue ;; *) [ "${{ github.event.inputs.devices }}" = "$KIND" ] || continue ;; esac
             if [ "$KIND" = iphone ]; then UDID=${{ steps.sim.outputs.phone }}; else UDID=${{ steps.sim.outputs.pad }}; fi
             OUT="$PWD/store/$KIND"; mkdir -p "$OUT"
             xcrun simctl boot "$UDID" || true
