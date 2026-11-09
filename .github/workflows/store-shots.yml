@@ -98,6 +98,7 @@ jobs:
             real 05-friends SIMCTL_CHILD_LUGIPOD_TAB=friends
             real 06-more SIMCTL_CHILD_LUGIPOD_TAB=more
             real 07-alerts SIMCTL_CHILD_LUGIPOD_ALERTS=1
+            cp /tmp/lugipod-diag.txt "$OUT/diag.txt" 2>/dev/null || echo "no diag file" > "$OUT/diag.txt"
 
             # 2) preview-mode screens that need no account
             xcrun simctl install "$UDID" "$APP"

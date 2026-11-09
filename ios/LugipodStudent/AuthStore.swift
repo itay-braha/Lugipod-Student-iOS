@@ -42,7 +42,11 @@ final class AuthStore: ObservableObject {
 
     private func bootstrap() async {
         #if DEBUG
-        if let login = Self.autologin { _ = try? await client.auth.signIn(email: login.email, password: login.password) }
+        if let login = Self.autologin {
+            do { _ = try await client.auth.signIn(email: login.email, password: login.password); DebugLog.write("autologin: signed in") }
+            catch { DebugLog.write("autologin FAILED: \(error)") }
+        } else { DebugLog.write("autologin: no credentials in the environment") }
+        DebugLog.write("configured=\(AppConfig.isConfigured)")
         #endif
         state = (try? await client.auth.session) != nil ? .signedIn : .signedOut
         for await change in client.auth.authStateChanges {
@@ -100,6 +104,7 @@ final class AuthStore: ObservableObject {
     }
 
     func signOut(notice: String? = nil) async {
+        DebugLog.write("signOut called, notice=\(notice ?? "none")")
         await PushNotifications.shared.willSignOut()
         try? await client.auth.signOut()
         LocalCache.clearAll()

@@ -72,6 +72,7 @@ final class HomeModel: ObservableObject {
         } catch APIError.notSignedIn {
             await AuthStore.shared.signOut()
         } catch {
+            DebugLog.write("home.load failed: \(error)")
             // Keep showing what we have; only say something when there is nothing to show.
             if data == nil { self.error = "לא הצלחנו לטעון את הנתונים. בדקו חיבור ונסו שוב." }
         }

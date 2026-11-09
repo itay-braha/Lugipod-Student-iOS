@@ -4,6 +4,18 @@ import Foundation
 /// skip sign-in and show a screen with sample data, so every screen can be screenshotted in the simulator without a server.
 /// Screens: friends, friends-list, invite, peer, profile, history, availability, home-limit, celebrate, coins, post-lesson, post-lesson-encore, call, login, login-code, login-email, home, home-parent, group, ask, lugichat, lugichat-thread, lugichat-limit, daily, daily-answered, more, alerts.
 /// Release builds (TestFlight) compile this away: `isOn` is always false there.
+/// DEBUG builds only: appends a line to /tmp/lugipod-diag.txt (the simulator shares the host file system), so CI can show what the
+/// automatic sign-in and the first loads did. Release builds have no such function.
+enum DebugLog {
+    static func write(_ s: String) {
+        #if DEBUG
+        let line = "\(Date()) \(s)\n"
+        if let h = FileHandle(forWritingAtPath: "/tmp/lugipod-diag.txt") { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
+        else { try? line.write(toFile: "/tmp/lugipod-diag.txt", atomically: true, encoding: .utf8) }
+        #endif
+    }
+}
+
 enum PreviewMode {
     #if DEBUG
     static let screen: String? = ProcessInfo.processInfo.environment["LUGIPOD_PREVIEW"]
