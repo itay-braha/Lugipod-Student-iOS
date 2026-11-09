@@ -8,6 +8,9 @@ enum BridgeMessage: Equatable {
     case lessonLeft(leftEarly: Bool, teacherName: String?)
     /// Close the lesson screen.
     case closeRoom
+    /// The lesson's state, sent whenever it changes (app build 133+ asks for it with "LugipodStudentApp/2"): "waiting" | "live" |
+    /// "review" | "ended", and when it ends (device clock, epoch ms; only while live), so the time left is drawn on the video.
+    case session(status: String, endsAt: Date?)
 
     init?(body: Any) {
         guard let dict = body as? [String: Any], let type = dict["type"] as? String else { return nil }
@@ -19,6 +22,9 @@ enum BridgeMessage: Equatable {
         case "endCall": self = .endCall
         case "closeRoom": self = .closeRoom
         case "lessonLeft": self = .lessonLeft(leftEarly: (dict["leftEarly"] as? Bool) ?? false, teacherName: dict["teacherName"] as? String)
+        case "session":
+            let ms = (dict["endsAt"] as? NSNumber)?.doubleValue
+            self = .session(status: (dict["status"] as? String) ?? "waiting", endsAt: ms.map { Date(timeIntervalSince1970: $0 / 1000) })
         default: return nil
         }
     }

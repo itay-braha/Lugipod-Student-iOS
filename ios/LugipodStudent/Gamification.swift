@@ -206,21 +206,23 @@ private struct CoinBurst: View {
 
 // MARK: - The lugi coin
 
-/// A gold lugi coin with the fox on it.
+/// The lugi coin with the fox on it: gold for lugis spent, the same coin in BLUE (`awarded`) for lugis given (gifts, a friend's four
+/// lessons, streaks). Wherever awarded lugis are shown, they carry the blue coin and their amount.
 struct FoxCoin: View {
     var size: CGFloat = 58
+    var awarded = false
 
     var body: some View {
         ZStack {
-            Circle().fill(Theme.coin)
-            Circle().strokeBorder(Color(hex: 0xB45309).opacity(0.55), lineWidth: size * 0.05)
+            Circle().fill(awarded ? Theme.awardedCoin : Theme.coin)
+            Circle().strokeBorder(Color(hex: awarded ? 0x1E3A8A : 0xB45309).opacity(0.55), lineWidth: size * 0.05)
             Circle().strokeBorder(Color.white.opacity(0.55), style: StrokeStyle(lineWidth: size * 0.02, dash: [size * 0.06, size * 0.05])).padding(size * 0.1)
             Image("Lugi-peek").resizable().scaledToFill()
                 .frame(width: size * 0.66, height: size * 0.66)
                 .clipShape(Circle())
         }
         .frame(width: size, height: size)
-        .shadow(color: Theme.gold700.opacity(0.45), radius: size * 0.12, y: size * 0.06)
+        .shadow(color: (awarded ? Color(hex: 0x1E40AF) : Theme.gold700).opacity(0.45), radius: size * 0.12, y: size * 0.06)
         .accessibilityHidden(true)
     }
 }

@@ -19,8 +19,12 @@ enum OrientationLock {
 }
 
 /// The lesson, natively and full screen, held sideways: the teacher's shared screen and everyone's faces fill the display, with the mic, the
-/// camera and the way out on top of it. The lesson's website page (timer, files, leave, feedback) stays loaded and slides in from the side
-/// when asked for. The app's native client is the student's ONLY participant in the room; the page does not join the video call.
+/// camera, the time left, the files and the way out on top of it. The lesson's website page (clock, files, report, leave, presence) stays
+/// loaded behind the "עוד" panel and does the work the native buttons ask for. The app's native client is the student's ONLY participant
+/// in the room; the page does not join the video call.
+///
+/// Opening is parallel since build 133: the video starts joining the moment the screen opens, while the page loads (before, the video
+/// waited for the whole page to load and ask for it).
 struct LessonCallScreen: View {
     let path: String
     @EnvironmentObject private var call: CallManager
@@ -29,6 +33,11 @@ struct LessonCallScreen: View {
     /// Set when the lesson is over for this student (they left, or the teacher ended it): the app asks how it was.
     @State private var left: (leftEarly: Bool, teacherName: String?)?
     @State private var showPanel = false
+    @StateObject private var page = WebController()
+    /// The lesson's state as the page reports it (waiting / live / review / ended) and when it ends (only while live).
+    @State private var status = "waiting"
+    @State private var endsAt: Date?
+    @State private var confirmLeave = false
 
     /// `/meeting/lesson/<id>` → ("lesson", id)
     private var meeting: (kind: String, ref: String)? {
@@ -40,7 +49,12 @@ struct LessonCallScreen: View {
         GeometryReader { geo in
             ZStack {
                 Color(hex: 0x0B1020).ignoresSafeArea()
-                CallVideoPanel(call: call, onClose: close, onDetails: { withAnimation(.easeOut(duration: 0.25)) { showPanel.toggle() } }, insets: geo.safeAreaInsets)
+                CallVideoPanel(call: call,
+                               endsAt: endsAt,
+                               onLeave: requestLeave,
+                               onFiles: { page.send(command: "files"); withAnimation(.easeOut(duration: 0.25)) { showPanel = true } },
+                               onMore: { withAnimation(.easeOut(duration: 0.25)) { showPanel.toggle() } },
+                               insets: geo.safeAreaInsets)
                     .ignoresSafeArea()
                 // The page is ALWAYS loaded (it keeps the lesson's clock, presence and the files), only slid out of view.
                 HStack(spacing: 0) {
@@ -50,8 +64,8 @@ struct LessonCallScreen: View {
                             Text("פרטי השיעור").font(.heebo(15, 900)).foregroundStyle(.white)
                             Spacer()
                             Button { withAnimation(.easeOut(duration: 0.25)) { showPanel = false } } label: {
-                                Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
-                                    .frame(width: 32, height: 32).background(Color.white.opacity(0.16), in: Circle())
+                                Label("חזרה לשיעור", systemImage: "chevron.forward").font(.heebo(13, 800)).foregroundStyle(.white)
+                                    .padding(.horizontal, 12).padding(.vertical, 7).background(Color.white.opacity(0.16), in: Capsule())
                             }
                         }
                         .padding(.horizontal, 14).padding(.vertical, 8)
@@ -78,21 +92,56 @@ struct LessonCallScreen: View {
             }
         }
         .overlay { CelebrationHost(center: celebration) }
+        .alert("השיעור עוד לא הסתיים", isPresented: $confirmLeave) {
+            Button("להישאר", role: .cancel) {}
+            Button("לצאת בכל זאת", role: .destructive) { leaveNow() }
+        } message: {
+            Text(endsAt.map { "נותרו עוד \(max(1, Int(($0.timeIntervalSinceNow / 60).rounded()))) דקות. בטוח שרוצים לצאת?" } ?? "בטוח שרוצים לצאת?")
+        }
         .animation(.easeOut(duration: 0.25), value: left == nil)
         .preferredColorScheme(.dark)
         .statusBarHidden(true)
         .persistentSystemOverlays(.hidden)
         .onAppear { OrientationLock.landscape() }
+        .task {
+            // Join the video right away, at the same time as the page loads (the page's own "startCall" later is then a no-op).
+            #if DEBUG
+            if PreviewMode.isOn { endsAt = Date().addingTimeInterval(42 * 60); status = "live"; return }
+            #endif
+            if let meeting { await call.start(kind: meeting.kind, ref: meeting.ref) }
+        }
         .onDisappear { call.stop(); OrientationLock.restore() }
     }
 
     private var controls: some View {
-        WebScreen(path: path, showsClose: false) { message in
+        WebScreen(path: path, showsClose: false, onMessage: { message in
             switch message {
             case .startCall(let kind, let ref): Task { await call.start(kind: kind, ref: ref) }
             case .endCall: call.stop()
             case .lessonLeft(let early, let teacher): call.stop(); left = (early, teacher); showPanel = false
             case .closeRoom: close()
+            case .session(let s, let e): status = s; endsAt = e
+            }
+        }, controller: page)
+    }
+
+    /// The way out (the X on the video). Before the lesson has started it just closes, as always. While it runs it asks first when real
+    /// time is left, then leaves through the page (which tells the server and answers with "lessonLeft" → "how was it?").
+    private func requestLeave() {
+        guard status == "live" || status == "review" || status == "ended" else { return close() }
+        if status == "live", let endsAt, endsAt.timeIntervalSinceNow > 30 { confirmLeave = true } else { leaveNow() }
+    }
+
+    private func leaveNow() {
+        let early = status == "live" && (endsAt?.timeIntervalSinceNow ?? 0) > 30
+        page.send(command: "leave")
+        // The page normally answers within a moment. If it cannot (it never loaded, no connection), leave anyway and still ask how it was.
+        Task {
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            if left == nil {
+                call.stop()
+                left = (early, nil)
+                showPanel = false
             }
         }
     }
@@ -104,11 +153,13 @@ struct LessonCallScreen: View {
 }
 
 /// The room as the student sees it: the teacher's shared screen (or the teacher's face) large, everyone else in a strip, the student's
-/// own camera small, and the mic and camera switches.
+/// own camera small, the mic and camera switches, and along the top: the way out, the time left, the lesson's files and "more".
 struct CallVideoPanel: View {
     @ObservedObject var call: CallManager
-    var onClose: () -> Void
-    var onDetails: (() -> Void)? = nil
+    var endsAt: Date? = nil
+    var onLeave: () -> Void
+    var onFiles: (() -> Void)? = nil
+    var onMore: (() -> Void)? = nil
     var insets: EdgeInsets = EdgeInsets()
 
     var body: some View {
@@ -116,19 +167,36 @@ struct CallVideoPanel: View {
             Color(hex: 0x0B1020)
             content
             VStack {
-                HStack {
-                    Button(action: onClose) {
-                        Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
-                            .frame(width: 38, height: 38).background(Color.white.opacity(0.18), in: Circle())
+                HStack(spacing: 8) {
+                    Button(action: onLeave) {
+                        Label("יציאה", systemImage: "rectangle.portrait.and.arrow.right").font(.heebo(13, 800)).foregroundStyle(.white)
+                            .padding(.horizontal, 12).padding(.vertical, 9).background(Theme.rose500.opacity(0.85), in: Capsule())
                     }
-                    .accessibilityLabel("יציאה מהחדר")
+                    .accessibilityLabel("יציאה מהשיעור")
                     Spacer()
-                    if let onDetails {
-                        Button(action: onDetails) {
-                            Label("פרטים", systemImage: "list.bullet.rectangle.portrait").font(.heebo(13, 800)).foregroundStyle(.white)
+                    if let endsAt {
+                        TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                            let left = max(0, Int(endsAt.timeIntervalSince(ctx.date)))
+                            Label(String(format: "%d:%02d", left / 60, left % 60), systemImage: "timer")
+                                .font(.heebo(13, 800).monospacedDigit()).foregroundStyle(.white)
+                                .padding(.horizontal, 11).padding(.vertical, 8)
+                                .background(left <= 120 ? Theme.rose500 : Color.white.opacity(0.18), in: Capsule())
+                                .accessibilityLabel("נותרו \(left / 60) דקות")
+                        }
+                    }
+                    if let onFiles {
+                        Button(action: onFiles) {
+                            Label("קבצים", systemImage: "paperclip").font(.heebo(13, 800)).foregroundStyle(.white)
                                 .padding(.horizontal, 12).padding(.vertical, 9).background(Color.white.opacity(0.18), in: Capsule())
                         }
-                        .accessibilityLabel("פרטי השיעור: זמן, קבצים ויציאה")
+                        .accessibilityLabel("הקבצים של השיעור")
+                    }
+                    if let onMore {
+                        Button(action: onMore) {
+                            Image(systemName: "ellipsis").font(.system(size: 15, weight: .heavy)).foregroundStyle(.white)
+                                .frame(width: 38, height: 38).background(Color.white.opacity(0.18), in: Circle())
+                        }
+                        .accessibilityLabel("עוד: דיווח ופרטי השיעור")
                     }
                 }
                 Spacer()

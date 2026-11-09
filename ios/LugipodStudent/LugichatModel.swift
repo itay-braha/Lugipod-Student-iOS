@@ -18,6 +18,8 @@ final class LugichatModel: ObservableObject {
     /// A photo attached to the message being written.
     @Published var pending: UIImage?
     @Published private(set) var sending = false
+    /// The answer that is still being written (shown as plain text until it is complete, then typeset once).
+    @Published private(set) var streamingId: UUID?
     @Published var error: String?
     /// The free answers (and any pack) are used up.
     @Published private(set) var limitHit = false
@@ -104,8 +106,11 @@ final class LugichatModel: ObservableObject {
         if PreviewMode.isOn { return }
         #endif
         struct Reply: Decodable { let chats: [ChatSummary] }
+        // the list from the last visit first (instant), then the fresh one
+        if chats.isEmpty, let raw = LocalCache.read("chats"), let cached = try? API.decoder.decode(Reply.self, from: raw) { chats = cached.chats }
         if let data = try? await API.request("GET", "/api/native/student/chats"), let reply = try? API.decoder.decode(Reply.self, from: data) {
             chats = reply.chats
+            LocalCache.write("chats", data)
         }
     }
 
@@ -123,18 +128,29 @@ final class LugichatModel: ObservableObject {
         do {
             let data = try await API.request("GET", "/api/native/student/chats/\(id)")
             let chat = try API.decoder.decode(Chat.self, from: data)
-            var list: [ChatMessage] = []
-            var lastImage: UIImage?
-            for m in chat.messages {
-                var image: UIImage?
-                if let link = m.imageUrl, let url = URL(string: link), let got = try? await URLSession.shared.data(from: url) { image = UIImage(data: got.0) }
-                if image != nil { lastImage = image }
-                list.append(ChatMessage(role: m.role == "student" ? .student : .bot, body: m.body, image: image))
+            // All the pictures download at the same time (one after another, a conversation with a few pictures took seconds to open).
+            let links = chat.messages.enumerated().compactMap { i, m in m.imageUrl.flatMap(URL.init(string:)).map { (i, $0) } }
+            var images: [Int: UIImage] = [:]
+            await withTaskGroup(of: (Int, UIImage?).self) { group in
+                for (i, url) in links {
+                    group.addTask {
+                        let started = Date()
+                        let got = try? await URLSession.shared.data(from: url)
+                        Perf.record(method: "GET", path: "/storage/chat-image", status: got == nil ? 0 : 200, since: started, bytes: got?.0.count)
+                        return (i, got.flatMap { UIImage(data: $0.0) })
+                    }
+                }
+                for await (i, image) in group { if let image { images[i] = image } }
             }
+            let list = chat.messages.enumerated().map { i, m in
+                ChatMessage(role: m.role == "student" ? .student : .bot, body: m.body, image: images[i])
+            }
+            let lastImage = images.keys.max().flatMap { images[$0] }
             messages = list
             chatId = chat.id
             pending = nil; error = nil; limitHit = false; pack = .idle
-            imageBase64 = lastImage.map { Self.encode($0) } ?? ""
+            // re-encoding the photo (resize + JPEG) is real work: off the main thread
+            imageBase64 = await Task.detached { lastImage.map { LugichatModel.encode($0) } ?? "" }.value
             if answerPending, messages.last?.role == .student { await run() }
         } catch APIError.notSignedIn {
             await AuthStore.shared.signOut()
@@ -185,7 +201,7 @@ final class LugichatModel: ObservableObject {
     private func run() async {
         guard !sending else { return }
         sending = true; error = nil
-        defer { sending = false }
+        defer { sending = false; streamingId = nil }
         let thread = messages.filter { !$0.body.isEmpty }
         let payload: [String: Any] = [
             "imageBase64": imageBase64,
@@ -204,7 +220,7 @@ final class LugichatModel: ObservableObject {
                 case "delta":
                     streamed += event["text"] as? String ?? ""
                     if let i = streamedIndex { messages[i].body = streamed }
-                    else { messages.append(ChatMessage(role: .bot, body: streamed)); streamedIndex = messages.count - 1 }
+                    else { messages.append(ChatMessage(role: .bot, body: streamed)); streamedIndex = messages.count - 1; streamingId = messages.last?.id }
                 case "done":
                     var q: Quota?
                     if let qo = event["quota"], JSONSerialization.isValidJSONObject(qo), let d = try? JSONSerialization.data(withJSONObject: qo) {

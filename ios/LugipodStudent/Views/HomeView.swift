@@ -204,9 +204,9 @@ struct HomeView: View {
     /// once they are (then the home is exactly as it was before). Lugis only, never a shekel amount.
     private func giftStrip(_ gift: Double) -> some View {
         HStack(spacing: 10) {
-            Text("🎁").font(.system(size: 24))
+            FoxCoin(size: 34, awarded: true)      // awarded lugis = the blue coin (spent = the gold one beside it)
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(gift == gift.rounded() ? String(Int(gift)) : String(format: "%.1f", gift)) לוגי במתנה").font(.heebo(17, 900)).foregroundStyle(Theme.gold300)
+                Text("\(gift == gift.rounded() ? String(Int(gift)) : String(format: "%.1f", gift)) לוגי במתנה").font(.heebo(17, 900)).foregroundStyle(Theme.awarded300)
                 Text("יורדים לבד מכל שיעור שלומדים. כשנגמרים, חוזרים לרגיל.").font(.heebo(12, 700)).foregroundStyle(.white.opacity(0.92))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -214,7 +214,7 @@ struct HomeView: View {
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(Color.white.opacity(0.16), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.gold300.opacity(0.6), lineWidth: 1.2))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.awarded300.opacity(0.7), lineWidth: 1.2))
         .accessibilityElement(children: .combine)
     }
 

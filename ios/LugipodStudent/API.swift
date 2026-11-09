@@ -61,12 +61,23 @@ enum API {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = try JSONSerialization.data(withJSONObject: json)
         }
+        // Timed for Perf: the wait for the login token, and the whole request.
+        let start = Date()
+        var tokenMs: Int?
         if authorized {
             let token = try await AuthStore.shared.accessToken()
+            tokenMs = Int(Date().timeIntervalSince(start) * 1000)
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        let (data, resp) = try await URLSession.shared.data(for: req)
+        let data: Data, resp: URLResponse
+        do {
+            (data, resp) = try await URLSession.shared.data(for: req)
+        } catch {
+            Perf.record(method: method, path: path, status: 0, since: start, tokenMs: tokenMs)
+            throw error
+        }
         let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        Perf.record(method: method, path: path, status: status, since: start, tokenMs: tokenMs, bytes: data.count)
         if (200..<300).contains(status) { return data }
         let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
         let message = obj?["error"] as? String ?? ""
@@ -94,11 +105,22 @@ enum API {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         req.httpBody = try JSONSerialization.data(withJSONObject: json)
+        let start = Date()
         let token = try await AuthStore.shared.accessToken()
+        let tokenMs = Int(Date().timeIntervalSince(start) * 1000)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        let (bytes, resp) = try await URLSession.shared.bytes(for: req)
+        let bytes: URLSession.AsyncBytes, resp: URLResponse
+        do {
+            (bytes, resp) = try await URLSession.shared.bytes(for: req)
+        } catch {
+            Perf.record(method: "POST", path: path, status: 0, since: start, tokenMs: tokenMs)
+            throw error
+        }
         let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        // the time until the first words matter most for a streamed answer: recorded as "<path>#first", the whole answer as "<path>"
+        var firstEvent = true
+        defer { Perf.record(method: "POST", path: path, status: status, since: start, tokenMs: tokenMs) }
         let isStream = ((resp as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type") ?? "").contains("text/event-stream")
         if !(200..<300).contains(status) || !isStream {
             var data = Data()
@@ -113,12 +135,19 @@ enum API {
         var buffer = Data()
         for try await b in bytes {
             buffer.append(b)
+            guard b == 0x0A else { continue }      // an event can only end on a newline: look for the blank line only then
             while let end = buffer.range(of: Data([0x0A, 0x0A])) {
                 let chunk = buffer.subdata(in: buffer.startIndex..<end.lowerBound)
                 buffer.removeSubrange(buffer.startIndex..<end.upperBound)
                 guard var line = String(data: chunk, encoding: .utf8) else { continue }
                 if line.hasPrefix("data: ") { line.removeFirst(6) }
-                if let obj = (try? JSONSerialization.jsonObject(with: Data(line.utf8))) as? [String: Any] { onEvent(obj) }
+                if let obj = (try? JSONSerialization.jsonObject(with: Data(line.utf8))) as? [String: Any] {
+                    if firstEvent {
+                        firstEvent = false
+                        Perf.record(method: "POST", path: path + "#first", status: status, since: start, tokenMs: tokenMs)
+                    }
+                    onEvent(obj)
+                }
             }
         }
     }

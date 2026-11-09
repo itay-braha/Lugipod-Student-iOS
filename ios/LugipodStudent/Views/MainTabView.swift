@@ -8,9 +8,23 @@ final class InboxModel: ObservableObject {
     @Published private(set) var loaded = false
     @Published var error: String?
 
+    init() {
+        #if DEBUG
+        if PreviewMode.isOn { return }
+        #endif
+        // the bell from the last visit at once (its count on the home header too), then the fresh one
+        if let raw = LocalCache.read("alerts"), let r = try? API.decoder.decode(AlertsResponse.self, from: raw) {
+            alerts = r.alerts
+            unread = r.unread
+            loaded = true
+        }
+    }
+
     func load() async {
         do {
-            let r = try await API.get("/api/native/alerts", as: AlertsResponse.self)
+            let raw = try await API.request("GET", "/api/native/alerts")
+            let r = try API.decoder.decode(AlertsResponse.self, from: raw)
+            LocalCache.write("alerts", raw)
             alerts = r.alerts
             unread = r.unread
             error = nil
@@ -61,12 +75,14 @@ final class HomeModel: ObservableObject {
     func load() async {
         loading = true
         defer { loading = false }
+        // the "same time next week?" offer is independent of the home: asked at the same time, not after it
+        async let offer = Rebook.active()
         do {
             let raw = try await API.request("GET", "/api/native/student/home")
             data = try API.decoder.decode(StudentHome.self, from: raw)
             LocalCache.write("home", raw)
             error = nil
-            encore = await Rebook.active()
+            encore = await offer
         } catch APIError.notAStudent {
             await AuthStore.shared.signOut(notice: APIError.notAStudentNotice)
         } catch APIError.notSignedIn {
@@ -188,6 +204,8 @@ struct MainTabView: View {
                 Task { await refresh() }
                 Task { await ShareSync.renewIfNeeded() }
                 openSharedConversationIfAny()
+            } else if phase == .background {
+                Task { await Perf.shared.flush() }
             }
         }
         .sheet(isPresented: $router.showAlerts) {
@@ -209,11 +227,14 @@ struct MainTabView: View {
         Task { await chat.open(chatId: request.id, answerPending: true) }
     }
 
-    /// Everything the first screens need, fetched at the same time (not one after another).
+    /// Everything the first screens need, fetched at the same time (not one after another), then the other screens' data in the
+    /// background, so opening any of them paints at once from the saved copy.
     private func refresh() async {
         async let a: Void = inbox.load()
         async let h: Void = home.load()
         async let d: Void = daily.loadIfNeeded()
         _ = await (a, h, d)
+        await Prefetch.warm()
+        await Perf.shared.flush()
     }
 }

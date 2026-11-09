@@ -7,9 +7,12 @@ final class ProfileModel: ObservableObject {
     @Published private(set) var busyId: String?
 
     func load() async {
+        // the profile from the last visit (or the background preload) at once, then the fresh one
+        if data == nil, let raw = LocalCache.read("profile"), let cached = try? API.decoder.decode(ProfileResponse.self, from: raw) { data = cached }
         do {
             let raw = try await API.request("GET", "/api/native/student/profile")
             data = try API.decoder.decode(ProfileResponse.self, from: raw)
+            LocalCache.write("profile", raw)
             error = nil
         } catch APIError.notSignedIn {
             await AuthStore.shared.signOut()
@@ -146,7 +149,7 @@ struct RewardsSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 12) {
-                    FoxCoin(size: 64)
+                    FoxCoin(size: 64, awarded: true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("איך מרוויחים?").font(.heebo(26, 900)).foregroundStyle(Theme.ink)
                         Text("לימוד קבוע משתלם, ממש").font(.heebo(14, 700)).foregroundStyle(Theme.slate600)

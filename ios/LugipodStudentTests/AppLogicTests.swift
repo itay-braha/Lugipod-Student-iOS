@@ -208,6 +208,15 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(BridgeMessage(body: ["type": "lessonLeft"]), .lessonLeft(leftEarly: false, teacherName: nil))
         XCTAssertEqual(BridgeMessage(body: ["type": "closeRoom"]), .closeRoom)
         XCTAssertNil(BridgeMessage(body: ["type": "startCall", "kind": "evil", "ref": "x"]))
+        // the lesson's state, with its end on the device clock (epoch ms), or no end while it has not started
+        XCTAssertEqual(BridgeMessage(body: ["type": "session", "status": "live", "endsAt": NSNumber(value: 1_800_000_000_000.0)]),
+                       .session(status: "live", endsAt: Date(timeIntervalSince1970: 1_800_000_000)))
+        XCTAssertEqual(BridgeMessage(body: ["type": "session", "status": "waiting", "endsAt": NSNull()]), .session(status: "waiting", endsAt: nil))
+    }
+
+    func testPerfPathsCarryNoIds() {
+        XCTAssertEqual(Perf.clean("/api/native/student/group/1b2c3d4e-0000-4000-8000-123456789abc?x=1"), "/api/native/student/group/:id")
+        XCTAssertEqual(Perf.clean("/api/student/guided-solve#first"), "/api/student/guided-solve#first")
     }
 
     func testAvatarAndCelebrations() {

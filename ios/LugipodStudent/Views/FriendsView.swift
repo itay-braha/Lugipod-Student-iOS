@@ -305,7 +305,7 @@ struct InviteSheet: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
-                FoxCoin(size: 96).padding(.top, 8)
+                FoxCoin(size: 96, awarded: true).padding(.top, 8)     // what you get is awarded lugis: the blue coin
                 VStack(spacing: 6) {
                     Text("הזמינו חבר/ה וקבלו 10 לוגי").font(.heebo(26, 900)).foregroundStyle(Theme.ink).multilineTextAlignment(.center)
                     Text("על כל חבר/ה שמתמידים ✨").font(.heebo(17, 800)).foregroundStyle(Theme.orange600)

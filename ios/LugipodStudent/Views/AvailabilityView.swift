@@ -19,15 +19,24 @@ final class AvailabilityModel: ObservableObject {
         }
         #endif
         struct Reply: Decodable { let slots: [Int] }
+        // The hours from the last visit (or from the background preload) paint at once; the fresh answer replaces them unless the
+        // student has already started changing them.
+        if !loaded, let raw = LocalCache.read("availability"), let cached = try? API.decoder.decode(Reply.self, from: raw) {
+            slots = Set(cached.slots)
+            original = slots
+            loaded = true
+        }
         do {
             let raw = try await API.request("GET", "/api/native/student/availability")
-            slots = Set(try API.decoder.decode(Reply.self, from: raw).slots)
-            original = slots
+            let fresh = Set(try API.decoder.decode(Reply.self, from: raw).slots)
+            LocalCache.write("availability", raw)
+            if !dirty { slots = fresh }
+            original = fresh
             loaded = true
         } catch APIError.notSignedIn {
             await AuthStore.shared.signOut()
         } catch {
-            self.error = "לא הצלחנו לטעון את השעות. בדקו חיבור ונסו שוב."
+            if !loaded { self.error = "לא הצלחנו לטעון את השעות. בדקו חיבור ונסו שוב." }
         }
     }
 
@@ -37,6 +46,7 @@ final class AvailabilityModel: ObservableObject {
         do {
             _ = try await API.request("POST", "/api/native/student/availability", json: ["slots": slots.sorted()])
             original = slots
+            if let raw = try? JSONSerialization.data(withJSONObject: ["slots": slots.sorted()]) { LocalCache.write("availability", raw) }
             return true
         } catch {
             self.error = "לא הצלחנו לשמור. נסו שוב."

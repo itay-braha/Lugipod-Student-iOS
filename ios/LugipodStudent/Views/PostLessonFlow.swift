@@ -170,12 +170,12 @@ struct PostLessonFlow: View {
     }
 
     private func send() async {
-        busy = true
-        defer { busy = false }
         var body: [String: Any] = ["kind": kind, "ref": ref, "leftEarly": leftEarly, "comment": comment]
         if rating > 0 { body["rating"] = rating }
         if let helped { body["helped"] = helped }
-        _ = try? await API.request("POST", "/api/meeting/feedback", json: body)   // never blocks the exit: feedback is best-effort
+        // Sent in the background: the student is thanked and moves on at once (the answer used to wait for the server first). Feedback is
+        // best-effort, and a detached task keeps going after this screen closes.
+        Task.detached { _ = try? await API.request("POST", "/api/meeting/feedback", json: body, timeout: 30) }
         advance(thanks: true)
     }
 

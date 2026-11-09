@@ -82,6 +82,10 @@ enum Theme {
     static let cta = LinearGradient(colors: [orange400, orange600], startPoint: .top, endPoint: .bottom)
     static let indigoButton = LinearGradient(colors: [brand500, brand700], startPoint: .top, endPoint: .bottom)
     static let coin = LinearGradient(colors: [gold300, gold500, Color(hex: 0xD97706)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    /// The AWARDED lugi coin: exactly the gold coin, in blue (the website's LugiCoin `reward`). Gold = lugis spent, blue = lugis given
+    /// (a friend's four lessons, a streak, points): the awarded ones cancel out spending and last at most a year.
+    static let awardedCoin = LinearGradient(colors: [Color(hex: 0x7DD3FC), Color(hex: 0x3B82F6), Color(hex: 0x1D4ED8)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    static let awarded300 = Color(hex: 0x93C5FD)
 
     /// The website's `shadow-soft`.
     static let shadowSoft1 = Color(hex: 0x0F172A, opacity: 0.04)

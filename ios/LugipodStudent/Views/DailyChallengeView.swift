@@ -53,7 +53,7 @@ struct DailyChallengeView: View {
         let toGift = 10 - (model.streak % 10)
         return Button { showRewards = true } label: {
             HStack(spacing: 10) {
-                FoxCoin(size: 34)
+                FoxCoin(size: 34, awarded: true)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(toGift == 10 && model.streak > 0 ? "קיבלתם לוגי מתנה! 🎉" : "עוד \(toGift) ימים ברצף = לוגי במתנה")
                         .font(.heebo(14, 900)).foregroundStyle(Theme.gold700)

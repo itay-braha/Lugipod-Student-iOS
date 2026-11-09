@@ -177,8 +177,16 @@ struct LugichatView: View {
             // Lugi answers: his face beside the text, no bubble around it.
             HStack(alignment: .top, spacing: 10) {
                 FoxAvatar()
-                RichText(text: m.body, font: .heebo(16, 500), color: Theme.ink)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // While the answer is still being written it is plain text: the formula view would reload its whole page for every
+                // new word. The finished answer is typeset once.
+                if m.id == model.streamingId {
+                    Text(RichText.attributed(m.body)).font(.heebo(16, 500)).foregroundStyle(Theme.ink)
+                        .lineSpacing(4).multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    RichText(text: m.body, font: .heebo(16, 500), color: Theme.ink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
