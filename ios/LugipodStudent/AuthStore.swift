@@ -31,6 +31,8 @@ final class AuthStore: ObservableObject {
     }
 
     #if DEBUG
+    private var debugToken: String?
+    private var debugRefresh: String?
     /// Store screenshots only (a DEBUG build; compiled out of Release and TestFlight builds): the simulator launches the app with
     /// LUGIPOD_AUTOLOGIN_EMAIL / LUGIPOD_AUTOLOGIN_PASSWORD and it signs in by itself, so no password is ever typed through the UI.
     static var autologin: (email: String, password: String)? {
@@ -43,8 +45,17 @@ final class AuthStore: ObservableObject {
     private func bootstrap() async {
         #if DEBUG
         if let login = Self.autologin {
-            do { _ = try await client.auth.signIn(email: login.email, password: login.password); DebugLog.write("autologin: signed in") }
-            catch { DebugLog.write("autologin FAILED: \(error)") }
+            do {
+                let session = try await client.auth.signIn(email: login.email, password: login.password)
+                DebugLog.write("autologin: signed in")
+                do { _ = try await client.auth.session; DebugLog.write("session readable after sign-in") }
+                catch { DebugLog.write("session NOT readable after sign-in: \(error)") }
+                // The CI simulator's keychain may not keep the session: for screenshots keep the token in memory and go straight in.
+                debugToken = session.accessToken
+                debugRefresh = session.refreshToken
+                state = .signedIn
+                return
+            } catch { DebugLog.write("autologin FAILED: \(error)") }
         } else { DebugLog.write("autologin: no credentials in the environment") }
         DebugLog.write("configured=\(AppConfig.isConfigured)")
         #endif
@@ -116,12 +127,18 @@ final class AuthStore: ObservableObject {
 
     func accessToken() async throws -> String {
         guard AppConfig.isConfigured else { throw APIError.notSignedIn }
+        #if DEBUG
+        if let t = debugToken { return t }
+        #endif
         do { return try await client.auth.session.accessToken } catch { throw APIError.notSignedIn }
     }
 
     /// For signing the in-app web pages in (POST /api/native/web-login).
     func sessionTokens() async throws -> (access: String, refresh: String) {
         guard AppConfig.isConfigured else { throw APIError.notSignedIn }
+        #if DEBUG
+        if let t = debugToken, let r = debugRefresh { return (t, r) }
+        #endif
         do {
             let s = try await client.auth.session
             return (s.accessToken, s.refreshToken)
