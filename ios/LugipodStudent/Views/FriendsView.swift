@@ -308,7 +308,7 @@ struct InviteSheet: View {
                 FoxCoin(size: 96).padding(.top, 8)
                 VStack(spacing: 6) {
                     Text("הזמינו חבר/ה וקבלו 10 לוגי").font(.heebo(26, 900)).foregroundStyle(Theme.ink).multilineTextAlignment(.center)
-                    Text("על כל חבר/ה שמתמידים ✨*").font(.heebo(17, 800)).foregroundStyle(Theme.orange600)
+                    Text("על כל חבר/ה שמתמידים ✨").font(.heebo(17, 800)).foregroundStyle(Theme.orange600)
                 }
                 VStack(alignment: .leading, spacing: 12) {
                     step("1", "שולחים לחבר/ה את הקישור שלכם")
@@ -316,8 +316,6 @@ struct InviteSheet: View {
                     step("3", "אתם מקבלים 10 לוגי במתנה: הם יורדים לבד מהשיעורים שלכם, ותקפים לשנה")
                 }
                 .card(padding: 16, radius: 22)
-                Text("* אם החבר/ה נהנים מהנחה במסגרת ארגון או בית ספר, הסכום יותאם בהתאם.")
-                    .font(.heebo(12, 600)).foregroundStyle(Theme.slate500).multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
                 ShareLink(item: invite.text) { Label("שליחת ההזמנה", systemImage: "square.and.arrow.up") }.buttonStyle(CTAButtonStyle())
                 Button {
                     UIPasteboard.general.string = invite.link; copied = true
