@@ -16,6 +16,8 @@ struct HomeView: View {
     @EnvironmentObject private var model: HomeModel
     @State private var path: [HomeRoute] = []
     @State private var askGroup: StudentHome.Group?
+    /// "שינוי מועד" open for this lesson (server 0258).
+    @State private var changeLesson: StudentHome.Lesson?
     @State private var showParent = false
     @State private var upgrade: Upgrade = .idle
     @State private var showProfile = false
@@ -57,6 +59,11 @@ struct HomeView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .environment(\.layoutDirection, .rightToLeft)
+        }
+        .sheet(item: $changeLesson) { lesson in
+            LessonChangeSheet(lessonId: lesson.id) { Task { await model.load() } }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showProfile) {
             ProfileSheet { Task { await model.load() } }
@@ -289,6 +296,7 @@ struct HomeView: View {
     @ViewBuilder private var content: some View {
         if let data = model.data {
             if let offer = model.encore { EncoreCardView(rebook: offer) { Task { await model.load() } } }
+            ForEach(data.rescheduleVotes ?? []) { v in RescheduleVoteCard(vote: v) { Task { await model.load() } } }
             groupsSection(data.groups)
             parentCard(data)
             libraryTile
@@ -314,7 +322,8 @@ struct HomeView: View {
                     GroupCard(group: g,
                               onAsk: { askGroup = g },
                               onJoin: { router.open(path: "/meeting/lesson/\($0)") },
-                              onHomework: { path.append(.group(g.id)) })
+                              onHomework: { path.append(.group(g.id)) },
+                              onChange: { changeLesson = $0 })
                         .contentShape(Rectangle())
                         .onTapGesture { path.append(.group(g.id)) }
                 }

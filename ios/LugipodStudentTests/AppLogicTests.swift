@@ -214,6 +214,30 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(BridgeMessage(body: ["type": "session", "status": "waiting", "endsAt": NSNull()]), .session(status: "waiting", endsAt: nil))
     }
 
+    func testLessonOptionsDecode() throws {
+        let json = """
+        {"status":"ok","lessonId":"L1","scheduledAt":"2026-11-11T15:00:00+00:00","groupSize":2,"excuse":"used","canMove":true,
+         "onceCandidates":[{"at":"2026-11-10T08:00:00+00:00","teacherOk":false}],"permanentCandidates":[116,117],
+         "openRequest":{"id":"R1","kind":"once","status":"voting","proposedAt":"2026-11-10T08:00:00+00:00","proposedSlot":null,"mine":true}}
+        """
+        let o = try API.decoder.decode(LessonOptions.self, from: Data(json.utf8))
+        XCTAssertEqual(o.excuse, "used")
+        XCTAssertEqual(o.onceCandidates.count, 1)
+        XCTAssertEqual(o.openRequest?.status, "voting")
+        XCTAssertEqual(LessonChangeModel.slotLabel(116), "יום שלישי 10:00")
+        XCTAssertEqual(LessonChangeModel.slotLabel(117), "יום שלישי 10:30")
+    }
+
+    func testNeverStartedLessonEndsAtItsTime() {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        let plain = StudentHome.Lesson(id: "a", groupId: "g", scheduledAt: start, durationMin: 90, extra: false)
+        let started = StudentHome.Lesson(id: "a", groupId: "g", scheduledAt: start, durationMin: 90, extra: false, started: true)
+        let nineAfterEnd = start.addingTimeInterval(99 * 60)
+        XCTAssertEqual(plain.phase(now: nineAfterEnd), .ended)        // never started: closed at its scheduled end
+        XCTAssertEqual(started.phase(now: nineAfterEnd), .live)       // started: may run into extra time
+        XCTAssertEqual(plain.phase(now: start.addingTimeInterval(-10 * 60)), .live)
+    }
+
     func testPerfPathsCarryNoIds() {
         XCTAssertEqual(Perf.clean("/api/native/student/group/1b2c3d4e-0000-4000-8000-123456789abc?x=1"), "/api/native/student/group/:id")
         XCTAssertEqual(Perf.clean("/api/student/guided-solve#first"), "/api/student/guided-solve#first")

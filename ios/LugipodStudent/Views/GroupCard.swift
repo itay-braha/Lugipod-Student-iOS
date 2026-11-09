@@ -29,6 +29,8 @@ struct GroupCard: View {
     var onAsk: () -> Void
     var onJoin: (String) -> Void
     var onHomework: () -> Void
+    /// "שינוי מועד": can't make it / move this lesson / change the weekly time (server 0258). Nil = not offered here.
+    var onChange: ((StudentHome.Lesson) -> Void)? = nil
 
     var body: some View {
         // Re-evaluated every 30 s, so "join" appears on time without a refresh.
@@ -99,6 +101,18 @@ struct GroupCard: View {
                     Text(HebrewDate.timeRange(next.scheduledAt, minutes: next.durationMin)).font(.heebo(18, 900)).foregroundStyle(Theme.ink)
                     Text(live ? HebrewDate.dayLabel(next.scheduledAt) : "\(HebrewDate.dayLabel(next.scheduledAt)) · \(HebrewDate.relative(next.scheduledAt, now: now))")
                         .font(.heebo(12, 600)).foregroundStyle(Theme.slate500)
+                    if next.excused == true {
+                        Label("הודעת שלא תגיע/י · בלי חיוב", systemImage: "hand.raised.fill").font(.heebo(12, 800)).foregroundStyle(Theme.rose600)
+                    } else if let from = next.movedFrom {
+                        Label("הוזז מ\(HebrewDate.weekday(from)) \(HebrewDate.time(from))", systemImage: "arrow.uturn.left").font(.heebo(12, 800)).foregroundStyle(Theme.brand600)
+                    }
+                    if !live, let onChange {
+                        Button { onChange(next) } label: {
+                            Text("שינוי מועד / לא אוכל להגיע").font(.heebo(12, 800)).foregroundStyle(Theme.brand600).underline()
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 2)
+                    }
                 }
                 Spacer(minLength: 6)
                 if live {

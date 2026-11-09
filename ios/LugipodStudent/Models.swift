@@ -14,13 +14,30 @@ struct StudentHome: Decodable, Equatable {
         let scheduledAt: Date
         let durationMin: Int
         let extra: Bool
+        /// I told the teacher I can't make it (not charged). Optional: an older server or cached copy has no such field.
+        var excused: Bool? = nil
+        /// Where this lesson moved FROM, when it was moved once.
+        var movedFrom: Date? = nil
+        /// It really started in the room: only then may it be joined in the 15 minutes after its scheduled end (extra time).
+        var started: Bool? = nil
 
-        /// Computed on the device, so a lesson turns "live" 15 minutes before it starts without waiting for a refresh.
+        /// Computed on the device, so a lesson turns "live" 15 minutes before it starts without waiting for a refresh. A lesson that never
+        /// started in the room is over at its scheduled end (the room itself refuses it then, 2026-11-09).
         func phase(now: Date = Date()) -> LessonPhase {
-            let end = scheduledAt.addingTimeInterval(Double(durationMin + 15) * 60)
+            let end = scheduledAt.addingTimeInterval(Double(durationMin + (started == true ? 15 : 0)) * 60)
             if now > end { return .ended }
             return now >= scheduledAt.addingTimeInterval(-15 * 60) ? .live : .upcoming
         }
+    }
+
+    /// A classmate asked to move one lesson; waiting for my yes / no (everyone must agree).
+    struct RescheduleVote: Decodable, Identifiable, Equatable {
+        let id: String
+        let lessonId: String
+        let groupId: String
+        let by: String
+        let from: Date?
+        let to: Date
     }
 
     struct LastLesson: Decodable, Equatable {
@@ -94,6 +111,7 @@ struct StudentHome: Decodable, Equatable {
     let dailyChallenge: Daily
     let lugichat: Quota?
     let unreadAlerts: Int
+    var rescheduleVotes: [RescheduleVote]? = nil
 }
 
 /// GET /api/native/student/group/<id>

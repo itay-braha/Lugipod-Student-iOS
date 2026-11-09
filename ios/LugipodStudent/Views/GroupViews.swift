@@ -43,6 +43,7 @@ struct GroupDetailView: View {
     @EnvironmentObject private var router: AppRouter
     @StateObject private var model = GroupDetailModel()
     @State private var asking = false
+    @State private var changeLesson: StudentHome.Lesson?
 
     private var group: StudentHome.Group? { home.data?.groups.first { $0.id == groupId } }
 
@@ -50,7 +51,8 @@ struct GroupDetailView: View {
         Scaffold(maxWidth: 720) {
             if let group {
                 let tint = SubjectTint.of(group.subject)
-                GroupCard(group: group, onAsk: {}, onJoin: { router.open(path: "/meeting/lesson/\($0)") }, onHomework: { router.open(path: "/dashboard") })
+                GroupCard(group: group, onAsk: {}, onJoin: { router.open(path: "/meeting/lesson/\($0)") }, onHomework: { router.open(path: "/dashboard") },
+                          onChange: { changeLesson = $0 })
                     .allowsHitTesting(true)
                 upcoming(tint)
                 homework(group)
@@ -66,6 +68,11 @@ struct GroupDetailView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .task { await model.load(groupId) }
         .refreshable { await model.load(groupId); await home.load() }
+        .sheet(item: $changeLesson) { lesson in
+            LessonChangeSheet(lessonId: lesson.id) { Task { await model.load(groupId); await home.load() } }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     @ViewBuilder private func upcoming(_ tint: SubjectTint) -> some View {
@@ -201,11 +208,13 @@ struct AllGroupsView: View {
     @EnvironmentObject private var home: HomeModel
     @EnvironmentObject private var router: AppRouter
     @State private var askGroup: StudentHome.Group?
+    @State private var changeLesson: StudentHome.Lesson?
 
     var body: some View {
         Scaffold(maxWidth: 720) {
             ForEach(home.data?.groups ?? []) { g in
-                GroupCard(group: g, onAsk: { askGroup = g }, onJoin: { router.open(path: "/meeting/lesson/\($0)") }, onHomework: { path.append(.group(g.id)) })
+                GroupCard(group: g, onAsk: { askGroup = g }, onJoin: { router.open(path: "/meeting/lesson/\($0)") }, onHomework: { path.append(.group(g.id)) },
+                          onChange: { changeLesson = $0 })
                     .contentShape(Rectangle())
                     .onTapGesture { path.append(.group(g.id)) }
             }
@@ -217,6 +226,10 @@ struct AllGroupsView: View {
             AskTeacherSheet(group: group) { Task { await home.load() } }
                 .presentationDetents([.medium]).presentationDragIndicator(.visible)
                 .environment(\.layoutDirection, .rightToLeft)
+        }
+        .sheet(item: $changeLesson) { lesson in
+            LessonChangeSheet(lessonId: lesson.id) { Task { await home.load() } }
+                .presentationDetents([.large]).presentationDragIndicator(.visible)
         }
     }
 }
