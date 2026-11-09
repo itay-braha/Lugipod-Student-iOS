@@ -98,6 +98,12 @@ jobs:
           # Prove the Share extension is inside the app (what the share sheet needs): list the plug-ins and show the extension's declaration.
           APP="$RUNNER_TEMP/LugipodStudent.xcarchive/Products/Applications/LugipodStudent.app"
           echo "PlugIns inside the app:"; ls "$APP/PlugIns" || echo "NO PlugIns FOLDER"
+          echo "Keychain group declared in the app / the extension:"
+          plutil -p "$APP/Info.plist" | grep -i LugipodKeychainGroup || echo "app: none"
+          plutil -p "$APP/PlugIns/LugipodShare.appex/Info.plist" | grep -i LugipodKeychainGroup || echo "extension: none"
+          echo "Signed entitlements (keychain) of the app / the extension:"
+          codesign -d --entitlements - "$APP" 2>&1 | grep -i -A4 "keychain-access-groups" || echo "app: no keychain-access-groups"
+          codesign -d --entitlements - "$APP/PlugIns/LugipodShare.appex" 2>&1 | grep -i -A3 "keychain-access-groups" || echo "extension: no keychain-access-groups"
           plutil -p "$APP/PlugIns/LugipodShare.appex/Info.plist" | grep -E "CFBundleIdentifier|NSExtension|CFBundleDisplayName|MinimumOSVersion|ActivationRule|public.image" || echo "NO EXTENSION Info.plist"
 
       - name: Upload to TestFlight

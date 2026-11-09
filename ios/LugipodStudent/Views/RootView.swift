@@ -59,6 +59,11 @@ struct RootView: View {
             guard auth.state == .signedIn else { return }
             await PushNotifications.shared.requestAuthorizationAndRegister()
             await PushNotifications.shared.uploadIfPossible()
+        }
+        // The Share extension's token has its own task: it must never wait behind the notification-permission prompt (which can sit
+        // unanswered for as long as the student likes), or "Share → לוגיפוד" says "sign in" although the student is signed in.
+        .task(id: auth.state) {
+            guard auth.state == .signedIn else { return }
             await ShareSync.renewIfNeeded()
         }
     }

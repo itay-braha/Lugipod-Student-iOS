@@ -12,9 +12,29 @@ import Security
 enum ShareBridge {
     private static let service = "com.itaybraha.lugipod.share"
 
-    private static var accessGroup: String? {
+    private static let accessGroup: String? = {
         let v = (Bundle.main.object(forInfoDictionaryKey: "LugipodKeychainGroup") as? String) ?? ""
-        return v.isEmpty || v.hasPrefix("$(") ? nil : v
+        if !v.isEmpty, !v.hasPrefix("$(") { return v }
+        return derivedGroup()
+    }()
+
+    /// The team prefix is not always substituted into Info.plist, so it is derived: an item saved with no group named lands in
+    /// "<TeamID>.<the app's first keychain group>" (for the app and for the extension alike), and the shared group is "<TeamID>." + the shared id.
+    private static func derivedGroup() -> String? {
+        var q: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service + ".probe",
+            kSecAttrAccount as String: "probe",
+        ]
+        SecItemDelete(q as CFDictionary)
+        q[kSecValueData as String] = Data("1".utf8)
+        q[kSecReturnAttributes as String] = true
+        var item: CFTypeRef?
+        guard SecItemAdd(q as CFDictionary, &item) == errSecSuccess,
+              let attrs = item as? [String: Any],
+              let group = attrs[kSecAttrAccessGroup as String] as? String,
+              let dot = group.firstIndex(of: ".") else { return nil }
+        return String(group[...dot]) + "com.itaybraha.lugipod.shared"
     }
 
     private static func query(_ account: String, group: String?) -> [String: Any] {
