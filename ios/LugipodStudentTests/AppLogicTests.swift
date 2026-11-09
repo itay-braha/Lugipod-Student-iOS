@@ -231,4 +231,13 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(AppRouter.destination(for: "/link-parent"), .linkParent)
         XCTAssertEqual(AppRouter.destination(for: "/alerts"), .alerts)
     }
+
+    func testQuotaCarriesThePackTermsFromTheServer() throws {
+        let json = #"{"free_left":0,"free_per_day":20,"pack_left":0,"can_ask":false,"pack_lugis":2,"pack_size":120,"pack_days":14}"#
+        let q = try API.decoder.decode(Quota.self, from: Data(json.utf8))
+        XCTAssertEqual(q.packLugis, 2)
+        XCTAssertEqual(q.packSize, 120)
+        XCTAssertEqual(q.packDays, 14)
+        XCTAssertEqual(q.remaining, 0)
+    }
 }

@@ -22,6 +22,9 @@ final class LugichatModel: ObservableObject {
     /// The free answers (and any pack) are used up.
     @Published private(set) var limitHit = false
     @Published private(set) var quota: Quota?
+    /// Going on after the free answers: what the student is looking at. Consumption, never a payment: the lugis count in their usage.
+    enum Pack: Equatable { case idle, buying, capReached, parentTold, failed(String) }
+    @Published private(set) var pack: Pack = .idle
 
     private var imageBase64 = ""
     /// Which of the welcome lines is shown (picked once per app launch, so it does not flicker).
@@ -46,7 +49,7 @@ final class LugichatModel: ObservableObject {
     #endif
 
     func reset() {
-        messages = []; pending = nil; imageBase64 = ""; error = nil; limitHit = false
+        messages = []; pending = nil; imageBase64 = ""; error = nil; limitHit = false; pack = .idle
     }
 
     func send(_ text: String) async {
@@ -60,6 +63,37 @@ final class LugichatModel: ObservableObject {
     }
 
     func retry() async { await run() }
+
+    /// "Go on now": takes the next block of answers (the server draws its lugis through the family's cap like any lesson).
+    func buyPack() async {
+        guard pack != .buying else { return }
+        pack = .buying
+        struct Reply: Decodable { let ok: Bool?; let error: String?; let capReached: Bool?; let quota: Quota? }
+        do {
+            let data = try await API.request("POST", "/api/native/student/lugichat-pack", json: [:], timeout: 30)
+            let reply = try API.decoder.decode(Reply.self, from: data)
+            if let q = reply.quota { quota = q }
+            limitHit = false
+            pack = .idle
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } catch APIError.server(_, let message) {
+            // The family has no room left under its limit: say so and offer the one thing that helps.
+            pack = message.contains("תקרה") ? .capReached : .failed(message.isEmpty ? "לא הצלחנו כרגע. נסו שוב." : message)
+        } catch APIError.notSignedIn {
+            await AuthStore.shared.signOut()
+        } catch { pack = .failed("לא הצלחנו כרגע. בדקו חיבור ונסו שוב.") }
+    }
+
+    /// The family limit is reached: send the parent our message with the details (same as the home banner).
+    func tellParent() async {
+        pack = .buying
+        do {
+            _ = try await API.request("POST", "/api/native/student/cap-request", json: [:], timeout: 30)
+            pack = .parentTold
+        } catch APIError.server(_, let message) where !message.isEmpty {
+            pack = .failed(message)
+        } catch { pack = .failed("לא הצלחנו לשלוח. בדקו חיבור ונסו שוב.") }
+    }
 
     private func run() async {
         guard !sending else { return }

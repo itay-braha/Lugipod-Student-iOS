@@ -170,15 +170,49 @@ struct LugichatView: View {
         }
     }
 
-    /// Shown only when the allowance is really over: why it exists, and how to go on, said calmly.
+    /// Shown only when the free allowance is really over: the free answers renew tomorrow, and going on now costs lugis, said plainly BEFORE
+    /// anything is used, so the next answer is never a surprise. The lugis count in the student's usage and appear on the family's monthly bill.
     private var limitCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let lugis = model.quota?.packLugis ?? 2
+        let size = model.quota?.packSize ?? 120
+        let days = model.quota?.packDays ?? 14
+        let lugisText = lugis == lugis.rounded() ? String(Int(lugis)) : String(format: "%.1f", lugis)
+        return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "moon.stars.fill").foregroundStyle(Theme.violet500)
                 Text("עד כאן להיום בלי עלות").font(.heebo(18, 800)).foregroundStyle(Theme.ink)
             }
-            Text("כל תשובה של לוגי היא עבודה אמיתית של מודל חכם, ולכן ההדרכה החינמית מוגבלת ביום. מחר בבוקר היא מתחדשת.")
+            Text("כל תשובה של לוגי היא עבודה אמיתית של מודל חכם, ולכן התשובות החינמיות מוגבלות ביום. מחר בבוקר הן מתחדשות.")
                 .font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("רוצים להמשיך עכשיו?").font(.heebo(15, 800)).foregroundStyle(Theme.ink)
+                Text("\(size) תשובות נוספות, בתוקף \(days) ימים, ב־\(lugisText) לוגי. הלוגי נספרים בצריכה שלכם החודש.")
+                    .font(.heebo(14, 600)).foregroundStyle(Theme.slate700)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            switch model.pack {
+            case .parentTold:
+                Label("שלחנו להורה הודעה עם כל הפרטים ✓", systemImage: "checkmark.circle.fill")
+                    .font(.heebo(14, 800)).foregroundStyle(Theme.emerald700)
+            case .capReached:
+                Text("הגעתם למגבלה החודשית, ולכן אי אפשר להמשיך כרגע.").font(.heebo(13, 700)).foregroundStyle(Theme.rose600)
+                Button { Task { await model.tellParent() } } label: { Label("עדכנו את ההורה", systemImage: "paperplane.fill") }
+                    .buttonStyle(CTAButtonStyle())
+            default:
+                if case .failed(let message) = model.pack { Text(message).font(.heebo(13, 700)).foregroundStyle(Theme.rose600) }
+                Button { Task { await model.buyPack() } } label: {
+                    HStack(spacing: 8) {
+                        if model.pack == .buying { ProgressView().tint(.white) }
+                        Text("המשך עכשיו · \(lugisText) לוגי")
+                    }
+                }
+                .buttonStyle(CTAButtonStyle())
+                .disabled(model.pack == .buying)
+                .accessibilityIdentifier("lugichat-continue")
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)

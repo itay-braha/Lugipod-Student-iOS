@@ -143,6 +143,10 @@ struct Quota: Decodable, Equatable {
     var freePerDay: Int?
     var packLeft: Int?
     var canAsk: Bool?
+    /// What a pack is (from the server, so the card never states a number the server does not use).
+    var packLugis: Double?
+    var packSize: Int?
+    var packDays: Int?
 
     var remaining: Int? {
         guard let free = freeLeft else { return nil }
