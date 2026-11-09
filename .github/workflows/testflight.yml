@@ -95,6 +95,10 @@ jobs:
             CURRENT_PROJECT_VERSION="$BUILD" \
             > archive.log 2>&1 || { grep -E "error:|warning: .*(sign|provision)" -A3 archive.log | head -120; exit 1; }
           grep -E "\*\* ARCHIVE" archive.log
+          # Prove the Share extension is inside the app (what the share sheet needs): list the plug-ins and show the extension's declaration.
+          APP="$RUNNER_TEMP/LugipodStudent.xcarchive/Products/Applications/LugipodStudent.app"
+          echo "PlugIns inside the app:"; ls "$APP/PlugIns" || echo "NO PlugIns FOLDER"
+          plutil -p "$APP/PlugIns/LugipodShare.appex/Info.plist" | grep -E "CFBundleIdentifier|NSExtension|CFBundleDisplayName|MinimumOSVersion|ActivationRule|public.image" || echo "NO EXTENSION Info.plist"
 
       - name: Upload to TestFlight
         env:

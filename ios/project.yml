@@ -127,8 +127,9 @@ targets:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
           NSExtensionAttributes:
-            NSExtensionActivationRule:
-              NSExtensionActivationSupportsImageWithMaxCount: 1
+            # Any shared item that is, or contains, a picture (a photo, several photos, a screenshot, a file that is an image).
+            NSExtensionActivationRule: >-
+              SUBQUERY (extensionItems, $extensionItem, SUBQUERY ($extensionItem.attachments, $attachment, ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.image").@count >= 1).@count >= 1
 
   LugipodStudentTests:
     type: bundle.unit-test
