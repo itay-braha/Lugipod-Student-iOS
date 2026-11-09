@@ -17,10 +17,13 @@ struct HomeView: View {
     @State private var path: [HomeRoute] = []
     @State private var askGroup: StudentHome.Group?
     @State private var showParent = false
+    @State private var upgrade: Upgrade = .idle
     @State private var showProfile = false
     @State private var showRewards = false
 
     private let shownGroups = 3
+
+    private enum Upgrade: Equatable { case idle, sending, sent, failed(String) }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -215,19 +218,48 @@ struct HomeView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// The student reached their own monthly limit: say so plainly. The app has no button to ask for more, change a plan or pay for anything
-    /// (App Store 3.1.3(f): a free companion app has no purchase functionality and no calls to action for purchase); the family manages the
-    /// limit in its own account.
+    /// The student reached their own monthly limit: say so plainly and offer the one thing they can do, let the parent know. That sends the
+    /// parent OUR WhatsApp message with the exact situation and an approval link: a message to a person, not a purchase in the app.
     private var limitBanner: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Label("הגעת למגבלה החודשית שלך", systemImage: "exclamationmark.circle.fill")
                 .font(.heebo(16, 900)).foregroundStyle(.white)
-            Text("ההורה מנהל את המגבלה בחשבון שלו.").font(.heebo(14, 600)).foregroundStyle(.white.opacity(0.92))
+            Text("כדי להמשיך לקבוע שיעורים ופעילויות, ההורה צריך לדעת על זה.").font(.heebo(14, 600)).foregroundStyle(.white.opacity(0.92))
+            switch upgrade {
+            case .sent:
+                Label("שלחנו להורה הודעה עם כל הפרטים ✓", systemImage: "checkmark.circle.fill")
+                    .font(.heebo(14, 800)).foregroundStyle(Theme.gold300)
+            case .failed(let message):
+                Text(message).font(.heebo(13, 700)).foregroundStyle(Theme.gold300)
+                letParentKnowButton
+            default:
+                letParentKnowButton
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Theme.orange400.opacity(0.7), lineWidth: 1.5))
+    }
+
+    private var letParentKnowButton: some View {
+        Button { Task { await tellParent() } } label: {
+            HStack(spacing: 8) { if upgrade == .sending { ProgressView().tint(.white) }; Image(systemName: "paperplane.fill"); Text("עדכנו את ההורה") }
+        }
+        .buttonStyle(CTAButtonStyle())
+        .disabled(upgrade == .sending)
+    }
+
+    private func tellParent() async {
+        guard model.data?.family.hasParent == true else { showParent = true; return }
+        upgrade = .sending
+        do {
+            _ = try await API.request("POST", "/api/native/student/cap-request", json: [:], timeout: 30)
+            upgrade = .sent
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } catch APIError.server(_, let message) where !message.isEmpty {
+            upgrade = .failed(message)
+        } catch { upgrade = .failed("לא הצלחנו לשלוח. בדקו חיבור ונסו שוב.") }
     }
 
     /// The newest unread alert, as one line: the app points at what is relevant instead of hiding it behind a bell.
