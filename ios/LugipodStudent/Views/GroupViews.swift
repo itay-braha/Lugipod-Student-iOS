@@ -312,6 +312,7 @@ struct AskTeacherSheet: View {
                     ZStack(alignment: .topLeading) {
                         Image(uiImage: image).resizable().scaledToFill().frame(width: 120, height: 120)
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .tapToZoom(image)
                         Button { self.image = nil } label: {
                             Image(systemName: "xmark.circle.fill").font(.system(size: 24)).foregroundStyle(.white, Theme.slate700)
                         }

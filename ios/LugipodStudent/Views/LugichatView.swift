@@ -158,6 +158,7 @@ struct LugichatView: View {
                 if let image = m.image {
                     Image(uiImage: image).resizable().scaledToFill()
                         .frame(width: 190, height: 150).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .tapToZoom(image)
                 }
                 if !m.body.isEmpty {
                     Text(m.body).font(.heebo(16, 600)).foregroundStyle(.white)
@@ -242,6 +243,7 @@ struct LugichatView: View {
                     ZStack(alignment: .topLeading) {
                         Image(uiImage: img).resizable().scaledToFill().frame(width: 76, height: 76)
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .tapToZoom(img)
                         Button { model.pending = nil } label: {
                             Image(systemName: "xmark.circle.fill").font(.system(size: 22)).foregroundStyle(.white, Theme.slate700)
                         }
