@@ -30,7 +30,20 @@ final class AuthStore: ObservableObject {
         Task { await bootstrap() }
     }
 
+    #if DEBUG
+    /// Store screenshots only (a DEBUG build; compiled out of Release and TestFlight builds): the simulator launches the app with
+    /// LUGIPOD_AUTOLOGIN_EMAIL / LUGIPOD_AUTOLOGIN_PASSWORD and it signs in by itself, so no password is ever typed through the UI.
+    static var autologin: (email: String, password: String)? {
+        let env = ProcessInfo.processInfo.environment
+        guard let e = env["LUGIPOD_AUTOLOGIN_EMAIL"], let p = env["LUGIPOD_AUTOLOGIN_PASSWORD"], !e.isEmpty, !p.isEmpty else { return nil }
+        return (e, p)
+    }
+    #endif
+
     private func bootstrap() async {
+        #if DEBUG
+        if let login = Self.autologin { _ = try? await client.auth.signIn(email: login.email, password: login.password) }
+        #endif
         state = (try? await client.auth.session) != nil ? .signedIn : .signedOut
         for await change in client.auth.authStateChanges {
             switch change.event {

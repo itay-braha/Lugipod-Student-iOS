@@ -75,7 +75,7 @@ struct HomeView: View {
         #if DEBUG
         .onChange(of: model.data) { _, data in
             // Screenshots only: open the group screen / the ask sheet once the sample data is in.
-            if PreviewMode.screen == "group", path.isEmpty, let id = data?.groups.first?.id { path = [.group(id)] }
+            if (PreviewMode.screen == "group" || ProcessInfo.processInfo.environment["LUGIPOD_GROUP"] == "1"), path.isEmpty, let id = data?.groups.first?.id { path = [.group(id)] }
             if PreviewMode.screen == "ask", askGroup == nil { askGroup = data?.groups.first }
         }
         #endif

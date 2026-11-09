@@ -51,7 +51,7 @@ struct RootView: View {
         }
         .task(id: auth.state) {
             #if DEBUG
-            if PreviewMode.isOn { return }
+            if PreviewMode.isOn || AuthStore.autologin != nil { return }   // screenshots never ask for notification permission
             #endif
             guard auth.state == .signedIn else { return }
             await PushNotifications.shared.requestAuthorizationAndRegister()

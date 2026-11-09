@@ -19,6 +19,16 @@ final class AppRouter: ObservableObject {
         #if DEBUG
         if let preview = PreviewMode.tab() { tab = preview }
         showAlerts = PreviewMode.opensAlerts
+        // Store screenshots (see AuthStore.autologin): which tab to open, and the bell.
+        let env = ProcessInfo.processInfo.environment
+        switch env["LUGIPOD_TAB"] {
+        case "lugichat": tab = .lugichat
+        case "practice": tab = .practice
+        case "friends": tab = .friends
+        case "more": tab = .more
+        default: break
+        }
+        if env["LUGIPOD_ALERTS"] == "1" { showAlerts = true }
         #endif
     }
 

@@ -63,15 +63,10 @@ jobs:
           echo "pad=$PAD" >> "$GITHUB_OUTPUT"
           xcrun simctl list devices available | grep -E "$PHONE|$PAD" || true
 
-      - name: Build for testing
+      - name: Build (Debug, for the simulator)
         run: |
           set -o pipefail
-          xcodebuild build-for-testing \
-            -project ios/LugipodStudent.xcodeproj -scheme LugipodStudentUI \
-            -destination "id=${{ steps.sim.outputs.phone }}" \
-            -derivedDataPath ios/.derived -clonedSourcePackagesDirPath ios/.spm \
-            -skipMacroValidation -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO \
-            > build.log 2>&1 || { grep -E "error:" build.log | tail -40; exit 1; }
+          xcodebuild build             -project ios/LugipodStudent.xcodeproj -scheme LugipodStudent             -destination "id=${{ steps.sim.outputs.phone }}"             -derivedDataPath ios/.derived -clonedSourcePackagesDirPath ios/.spm             -skipMacroValidation -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO             > build.log 2>&1 || { grep -E "error:" build.log | tail -40; exit 1; }
 
       - name: Photograph (iPhone 6.9 inch and iPad 13 inch)
         run: |
@@ -87,14 +82,22 @@ jobs:
             xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
             xcrun simctl uninstall "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
 
-            # 1) the real signed-in account
-            STORE_SHOTS_DIR="$OUT" TEST_RUNNER_STORE_SHOTS_DIR="$OUT" TEST_RUNNER_STORE_SHOTS_PASSWORD="${{ secrets.APP_REVIEW_STUDENT_PASSWORD }}" \
-            xcodebuild test-without-building \
-              -project ios/LugipodStudent.xcodeproj -scheme LugipodStudentUI \
-              -destination "id=$UDID" -only-testing:LugipodStudentUITests/StoreShotsUITests \
-              -derivedDataPath ios/.derived CODE_SIGNING_ALLOWED=NO \
-              > "uitest-$KIND.log" 2>&1 || { grep -E "error:|XCTAssert|failed" "uitest-$KIND.log" | tail -20; }
-            grep -E "Test Case|\*\* TEST" "uitest-$KIND.log" | tail -5
+            # 1) the real demo student: a DEBUG-only automatic sign-in (AuthStore.autologin), no typing through the UI
+            xcrun simctl install "$UDID" "$APP"
+            real() {   # real <file> <ENV=VALUE>...
+              NAME="$1"; shift
+              xcrun simctl terminate "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
+              env SIMCTL_CHILD_LUGIPOD_AUTOLOGIN_EMAIL=demo.student@lugipod.demo SIMCTL_CHILD_LUGIPOD_AUTOLOGIN_PASSWORD="${{ secrets.APP_REVIEW_STUDENT_PASSWORD }}" "$@" xcrun simctl launch "$UDID" "$BUNDLE" >/dev/null
+              sleep 16
+              xcrun simctl io "$UDID" screenshot "$OUT/$NAME.png"
+            }
+            real 01-home
+            real 02-group SIMCTL_CHILD_LUGIPOD_GROUP=1
+            real 03-practice SIMCTL_CHILD_LUGIPOD_TAB=practice
+            real 04-lugichat SIMCTL_CHILD_LUGIPOD_TAB=lugichat
+            real 05-friends SIMCTL_CHILD_LUGIPOD_TAB=friends
+            real 06-more SIMCTL_CHILD_LUGIPOD_TAB=more
+            real 07-alerts SIMCTL_CHILD_LUGIPOD_ALERTS=1
 
             # 2) preview-mode screens that need no account
             xcrun simctl install "$UDID" "$APP"
