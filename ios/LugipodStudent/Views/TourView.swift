@@ -47,7 +47,7 @@ struct TourView: View {
 
     var body: some View {
         ZStack {
-            ScreenBackground()
+            ScreenBackground().ignoresSafeArea()
             VStack(spacing: 0) {
                 topBar
                 TabView(selection: $page) {
@@ -79,9 +79,10 @@ struct TourView: View {
     }
 
     private func cardView(_ card: Card) -> some View {
+        GeometryReader { geo in
         ScrollView {
             VStack(spacing: 16) {
-                Lugi(pose: card.pose, height: card.isParent ? 170 : 230, breathing: true)
+                Lugi(pose: card.pose, height: card.isParent ? 170 : 250, breathing: true)
                     .padding(.top, 4)
                 Text(card.title).font(.heebo(28, 900)).foregroundStyle(Theme.ink).multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -105,10 +106,11 @@ struct TourView: View {
                 if card.isParent { parentBlock }
             }
             .padding(.horizontal, 24).padding(.bottom, 24)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: geo.size.height)   // short cards sit in the middle of the page, not at the top
         }
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.interactively)
+        }
     }
 
     /// The one card that asks for something: the adult's number, right here, no detour.
