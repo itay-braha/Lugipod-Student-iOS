@@ -262,4 +262,19 @@ final class AppLogicTests: XCTestCase {
         XCTAssertNotNil(received)
         XCTAssertEqual(view.text, "")
     }
+
+    func testShareBridgeOpenRequestIsTakenOnce() throws {
+        ShareBridge.setOpenRequest(kind: "lugichat", id: "chat-1")
+        guard let first = ShareBridge.takeOpenRequest() else { throw XCTSkip("no keychain access in this build") }
+        XCTAssertEqual(first.kind, "lugichat")
+        XCTAssertEqual(first.id, "chat-1")
+        XCTAssertNil(ShareBridge.takeOpenRequest())
+    }
+
+    func testSavedConversationRowDecodes() throws {
+        let json = #"{"id":"c1","title":"שיחה עם תמונה","lastAt":"2026-11-09T12:00:00.123Z","snippet":"","hasImage":true}"#
+        let chat = try API.decoder.decode(ChatSummary.self, from: Data(json.utf8))
+        XCTAssertEqual(chat.id, "c1")
+        XCTAssertTrue(chat.hasImage)
+    }
 }

@@ -37,6 +37,8 @@ targets:
       - path: Resources/katex
         type: folder
         buildPhase: resources
+      # The keychain bridge shared with the Share extension (the share token and the "open this conversation" request).
+      - path: Shared
     configFiles:
       Debug: Config/LugipodStudent.xcconfig
       Release: Config/LugipodStudent.xcconfig
@@ -45,11 +47,15 @@ targets:
         product: Supabase
       - package: Daily
         product: Daily
+      # "Share → לוגיפוד": send a picture from any app to a Lugichat conversation or to a teacher.
+      - target: LugipodShare
     entitlements:
       path: LugipodStudent/LugipodStudent.entitlements
       properties:
         aps-environment: production
         com.apple.developer.associated-domains: [applinks:lugipod.com]
+        # The app's own group stays first (the Supabase session keeps living in it); the shared group is for the Share extension only.
+        keychain-access-groups: [$(AppIdentifierPrefix)com.itaybraha.lugipod, $(AppIdentifierPrefix)com.itaybraha.lugipod.shared]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.itaybraha.lugipod
@@ -82,6 +88,47 @@ targets:
         LugipodBaseURL: $(LUGIPOD_BASE_URL)
         LugipodSupabaseHost: $(SUPABASE_PROJECT_HOST)
         LugipodSupabaseKey: $(SUPABASE_PUBLISHABLE_KEY)
+        LugipodKeychainGroup: $(AppIdentifierPrefix)com.itaybraha.lugipod.shared
+
+  # "Share → לוגיפוד" (WhatsApp, Photos, Safari...): a picture to a Lugichat conversation or a pre-lesson question.
+  LugipodShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: LugipodShare
+        excludes:
+          - "PrivacyInfo.xcprivacy"
+      - path: LugipodShare/PrivacyInfo.xcprivacy
+        buildPhase: resources
+      - path: Shared
+    configFiles:
+      Debug: Config/LugipodStudent.xcconfig
+      Release: Config/LugipodStudent.xcconfig
+    entitlements:
+      path: LugipodShare/LugipodShare.entitlements
+      properties:
+        keychain-access-groups: [$(AppIdentifierPrefix)com.itaybraha.lugipod.shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.itaybraha.lugipod.share
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+    info:
+      path: LugipodShare/Info.plist
+      properties:
+        CFBundleDisplayName: לוגיפוד
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LugipodBaseURL: $(LUGIPOD_BASE_URL)
+        LugipodKeychainGroup: $(AppIdentifierPrefix)com.itaybraha.lugipod.shared
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsImageWithMaxCount: 1
 
   LugipodStudentTests:
     type: bundle.unit-test

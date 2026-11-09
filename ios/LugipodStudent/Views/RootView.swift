@@ -59,6 +59,7 @@ struct RootView: View {
             guard auth.state == .signedIn else { return }
             await PushNotifications.shared.requestAuthorizationAndRegister()
             await PushNotifications.shared.uploadIfPossible()
+            await ShareSync.renewIfNeeded()
         }
     }
 }

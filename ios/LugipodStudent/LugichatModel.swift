@@ -22,6 +22,12 @@ final class LugichatModel: ObservableObject {
     /// The free answers (and any pack) are used up.
     @Published private(set) var limitHit = false
     @Published private(set) var quota: Quota?
+    /// The saved conversation on screen (nil = a new one that is not saved yet), and the list of the student's conversations.
+    @Published private(set) var chatId: String?
+    @Published private(set) var chats: [ChatSummary] = []
+    @Published private(set) var opening = false
+    /// Saving runs one step after another, so the answer is never saved before the question that created the conversation.
+    private var saveTail: Task<Void, Never>?
     /// Going on after the free answers: what the student is looking at. Consumption, never a payment: the lugis count in their usage.
     enum Pack: Equatable { case idle, buying, capReached, parentTold, failed(String) }
     @Published private(set) var pack: Pack = .idle
@@ -49,7 +55,7 @@ final class LugichatModel: ObservableObject {
     #endif
 
     func reset() {
-        messages = []; pending = nil; imageBase64 = ""; error = nil; limitHit = false; pack = .idle
+        messages = []; pending = nil; imageBase64 = ""; error = nil; limitHit = false; pack = .idle; chatId = nil
     }
 
     func send(_ text: String) async {
@@ -57,9 +63,90 @@ final class LugichatModel: ObservableObject {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty || pending != nil else { return }
         if let img = pending { imageBase64 = Self.encode(img) }
+        let sentImage = pending != nil ? imageBase64 : nil
         messages.append(ChatMessage(role: .student, body: trimmed, image: pending))
         pending = nil
+        save(role: "student", body: trimmed, imageBase64: sentImage)
         await run()
+    }
+
+    // MARK: Saved conversations
+
+    /// Saves one message of the conversation on the server (the first student message creates it). Best effort: a failed save never
+    /// disturbs the conversation on screen.
+    private func save(role: String, body: String, imageBase64: String?) {
+        #if DEBUG
+        if PreviewMode.isOn { return }
+        #endif
+        let previous = saveTail
+        saveTail = Task { [weak self] in
+            await previous?.value
+            guard let self else { return }
+            var payload: [String: Any] = ["role": role, "body": body]
+            if let imageBase64 { payload["imageBase64"] = imageBase64; payload["mimeType"] = "image/jpeg" }
+            do {
+                if let id = self.chatId {
+                    _ = try await API.post("/api/native/student/chats/\(id)/messages", json: payload)
+                } else if role == "student" {
+                    struct Created: Decodable { let id: String }
+                    var first: [String: Any] = ["text": body]
+                    if let imageBase64 { first["imageBase64"] = imageBase64; first["mimeType"] = "image/jpeg" }
+                    let data = try await API.post("/api/native/student/chats", json: first)
+                    self.chatId = try API.decoder.decode(Created.self, from: data).id
+                    await self.refreshChats()
+                }
+            } catch { /* not saved: the chat on screen carries on */ }
+        }
+    }
+
+    func refreshChats() async {
+        #if DEBUG
+        if PreviewMode.isOn { return }
+        #endif
+        struct Reply: Decodable { let chats: [ChatSummary] }
+        if let data = try? await API.request("GET", "/api/native/student/chats"), let reply = try? API.decoder.decode(Reply.self, from: data) {
+            chats = reply.chats
+        }
+    }
+
+    /// Opens a saved conversation, pictures included. `answerPending`: the student shared a picture into it from another app (the Share
+    /// extension), so when the last message is theirs and unanswered, Lugifox answers it now.
+    func open(chatId id: String, answerPending: Bool = false) async {
+        #if DEBUG
+        if PreviewMode.isOn { return }
+        #endif
+        guard !sending else { return }
+        opening = true
+        defer { opening = false }
+        struct Msg: Decodable { let role: String; let body: String; let imageUrl: String? }
+        struct Chat: Decodable { let id: String; let messages: [Msg] }
+        do {
+            let data = try await API.request("GET", "/api/native/student/chats/\(id)")
+            let chat = try API.decoder.decode(Chat.self, from: data)
+            var list: [ChatMessage] = []
+            var lastImage: UIImage?
+            for m in chat.messages {
+                var image: UIImage?
+                if let link = m.imageUrl, let url = URL(string: link), let got = try? await URLSession.shared.data(from: url) { image = UIImage(data: got.0) }
+                if image != nil { lastImage = image }
+                list.append(ChatMessage(role: m.role == "student" ? .student : .bot, body: m.body, image: image))
+            }
+            messages = list
+            chatId = chat.id
+            pending = nil; error = nil; limitHit = false; pack = .idle
+            imageBase64 = lastImage.map { Self.encode($0) } ?? ""
+            if answerPending, messages.last?.role == .student { await run() }
+        } catch APIError.notSignedIn {
+            await AuthStore.shared.signOut()
+        } catch {
+            self.error = "לא הצלחנו לפתוח את השיחה. נסו שוב."
+        }
+    }
+
+    func deleteChat(_ id: String) async {
+        _ = try? await API.request("DELETE", "/api/native/student/chats/\(id)")
+        chats.removeAll { $0.id == id }
+        if chatId == id { reset() }
     }
 
     func retry() async { await run() }
@@ -109,6 +196,7 @@ final class LugichatModel: ObservableObject {
             let data = try await API.request("POST", "/api/student/guided-solve", json: payload, timeout: 75)
             let reply = try API.decoder.decode(Reply.self, from: data)
             messages.append(ChatMessage(role: .bot, body: reply.answer))
+            save(role: "bot", body: reply.answer, imageBase64: nil)
             if let q = reply.quota { quota = q }
         } catch APIError.server(let status, _) where status == 402 {
             limitHit = true
@@ -155,4 +243,13 @@ final class LugichatModel: ObservableObject {
         ]
         return lines[greetingSeed % lines.count]
     }
+}
+
+/// One row of "my conversations".
+struct ChatSummary: Decodable, Identifiable, Equatable {
+    let id: String
+    let title: String
+    let lastAt: Date
+    let snippet: String
+    let hasImage: Bool
 }

@@ -177,13 +177,17 @@ struct MainTabView: View {
             let skipTour = false
             #endif
             if !tourSeen, !skipTour, home.data != nil { router.showTour = true }
+            openSharedConversationIfAny()
             #if DEBUG
             if PreviewMode.screen == "celebrate" { celebration.fox("כל הכבוד!", subtitle: "שמרת על הרצף · +5 נקודות", pose: .cheer, big: true) }
             if PreviewMode.screen == "coins" { celebration.coins("−2 לוגי") }
             #endif
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await refresh() } }
+            if phase == .active {
+                Task { await refresh() }
+                openSharedConversationIfAny()
+            }
         }
         .sheet(isPresented: $router.showAlerts) {
             // A small sheet over the home, not a full screen: the bell is a glance, not a place.
@@ -194,6 +198,14 @@ struct MainTabView: View {
                 .presentationDetents([.fraction(0.55), .large])
                 .presentationDragIndicator(.visible)
         }
+    }
+
+    /// The student shared a picture into a Lugichat conversation from another app (the Share extension): open that conversation now, and
+    /// let Lugifox answer it.
+    private func openSharedConversationIfAny() {
+        guard let request = ShareBridge.takeOpenRequest(), request.kind == "lugichat" else { return }
+        router.tab = .lugichat
+        Task { await chat.open(chatId: request.id, answerPending: true) }
     }
 
     /// Everything the first screens need, fetched at the same time (not one after another).

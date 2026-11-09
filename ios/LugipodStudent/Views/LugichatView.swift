@@ -9,6 +9,7 @@ struct LugichatView: View {
     @State private var showCamera = false
     @State private var pickerItem: PhotosPickerItem?
     @State private var typing = false
+    @State private var showChats = false
 
     private var cameraAvailable: Bool { UIImagePickerController.isSourceTypeAvailable(.camera) }
 
@@ -19,6 +20,8 @@ struct LugichatView: View {
             composer
         }
         .background(ScreenBackground())
+        .sheet(isPresented: $showChats) { ChatListSheet().environmentObject(model) }
+        .overlay { if model.opening { ProgressView().controlSize(.large).padding(24).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18)) } }
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { model.pending = $0 }.ignoresSafeArea()
         }
@@ -45,6 +48,11 @@ struct LugichatView: View {
                 Text("לוגיצ׳אט").font(.heebo(22, 900)).foregroundStyle(.white)
             }
             Spacer()
+            Button { showChats = true } label: {
+                Image(systemName: "clock.arrow.circlepath").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.violet700)
+                    .frame(width: 42, height: 42).background(Color.white, in: Circle())
+            }
+            .accessibilityLabel("השיחות שלי")
             if model.hasThread {
                 Button { model.reset(); draft = "" } label: {
                     Image(systemName: "square.and.pencil").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.violet700)

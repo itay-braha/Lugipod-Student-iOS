@@ -124,6 +124,7 @@ final class AuthStore: ObservableObject {
 
     func signOut(notice: String? = nil) async {
         DebugLog.write("signOut called, notice=\(notice ?? "none")")
+        await ShareSync.revokeAndClear()
         await PushNotifications.shared.willSignOut()
         try? await client.auth.signOut()
         LocalCache.clearAll()
