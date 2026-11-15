@@ -35,7 +35,7 @@ final class AuthStore: ObservableObject {
     private var debugRefresh: String?
     /// Store screenshots only (a DEBUG build; compiled out of Release and TestFlight builds): the simulator launches the app with
     /// LUGIPOD_AUTOLOGIN_EMAIL / LUGIPOD_AUTOLOGIN_PASSWORD and it signs in by itself, so no password is ever typed through the UI.
-    static var autologin: (email: String, password: String)? {
+    nonisolated static var autologin: (email: String, password: String)? {
         let env = ProcessInfo.processInfo.environment
         guard let e = env["LUGIPOD_AUTOLOGIN_EMAIL"], let p = env["LUGIPOD_AUTOLOGIN_PASSWORD"], !e.isEmpty, !p.isEmpty else { return nil }
         return (e, p)

@@ -23,6 +23,8 @@ final class LugichatModel: ObservableObject {
     @Published var error: String?
     /// The free answers (and any pack) are used up.
     @Published private(set) var limitHit = false
+    /// The server said a parent must be connected first (403 parent_required): the error text explains, the view offers WhatsApp.
+    @Published private(set) var parentNeeded = false
     @Published private(set) var quota: Quota?
     /// The saved conversation on screen (nil = a new one that is not saved yet), and the list of the student's conversations.
     @Published private(set) var chatId: String?
@@ -200,7 +202,7 @@ final class LugichatModel: ObservableObject {
 
     private func run() async {
         guard !sending else { return }
-        sending = true; error = nil
+        sending = true; error = nil; parentNeeded = false
         defer { sending = false; streamingId = nil }
         let thread = messages.filter { !$0.body.isEmpty }
         let payload: [String: Any] = [
@@ -238,6 +240,10 @@ final class LugichatModel: ObservableObject {
             if let i = streamedIndex { messages[i].body = finished.answer } else { messages.append(ChatMessage(role: .bot, body: finished.answer)) }
             save(role: "bot", body: finished.answer, imageBase64: nil)
             if let q = finished.quota { quota = q }
+        } catch APIError.server(let status, let message) where status == 403 && message.contains("הורה") {
+            // No connected parent yet: no AI call was made and nothing was used. Explain + offer the message to the parent.
+            parentNeeded = true
+            error = message
         } catch APIError.server(let status, _) where status == 402 {
             limitHit = true
             quota = Quota(freeLeft: 0, freePerDay: nil, packLeft: 0, canAsk: false)

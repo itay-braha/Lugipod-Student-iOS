@@ -117,6 +117,13 @@ struct LugichatView: View {
 
     // MARK: Conversation
 
+    static let parentInviteURL: URL = {
+        let text = "היי! אני לומד/ת עם לוגיפוד 🦊 כדי שאוכל להשתמש בלוגיצ׳אט צריך שתתחברו כהורה: נכנסים ל-https://lugipod.com , נרשמים כהורה ומוסיפים אותי לפי מספר הטלפון שלי. תודה!"
+        var c = URLComponents(string: "https://wa.me/")!
+        c.queryItems = [URLQueryItem(name: "text", value: text)]
+        return c.url!
+    }()
+
     private var thread: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -128,7 +135,10 @@ struct LugichatView: View {
                     if let error = model.error {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(error).font(.heebo(14, 600)).foregroundStyle(Theme.rose600)
-                            if model.canRetry { Button("נסו שוב") { Task { await model.retry() } }.buttonStyle(SoftButtonStyle()) }
+                            if model.parentNeeded {
+                                // Opens the student's own WhatsApp with a ready message to the parent (nothing is sent by us).
+                                Button("💬 שליחה להורה בוואטסאפ") { UIApplication.shared.open(Self.parentInviteURL) }.buttonStyle(SoftButtonStyle())
+                            } else if model.canRetry { Button("נסו שוב") { Task { await model.retry() } }.buttonStyle(SoftButtonStyle()) }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
