@@ -18,7 +18,8 @@ jobs:
   build-test:
     name: Build and test
     runs-on: macos-26
-    timeout-minutes: 45
+    # 34–37 min on a typical runner; a slow one took 45m18s on 2026-11-16 and the green run was marked "cancelled" at the limit
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
 
