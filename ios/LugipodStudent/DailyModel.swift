@@ -119,6 +119,9 @@ final class DailyModel: ObservableObject {
             do {
                 let data = try await API.request("POST", "/api/native/student/daily/answer", json: ["questionId": id, "choiceIndex": choice, "responseMs": ms])
                 if let s = (try? API.decoder.decode(Ack.self, from: data))?.streak { streak = s }
+                // Warm the interactive solution (written once per question on the server, ~6 s the first time),
+                // so "לפתרון שלב אחר שלב" opens instantly. Best effort: the answer is already recorded.
+                _ = try? await API.request("GET", "/api/student/solution/\(id)", timeout: 60)
                 return
             } catch APIError.notSignedIn {
                 return

@@ -194,6 +194,26 @@ struct DailyChallengeView: View {
             if !r.explanation.isEmpty {
                 RichText(text: r.explanation, font: .heebo(15, 500), color: Theme.slate700)
             }
+            // The interactive solution (website page, shown in the app's signed-in web view): steps, why each step,
+            // the question's data lit up, ask Lugi about a step, similar questions, a fresh exercise, "practise this later".
+            if let q = model.question {
+                Button {
+                    router.open(path: "/solution/\(q.id)?app=1" + (model.picked.map { "&chose=\($0)" } ?? ""))
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                        Text("לפתרון שלב אחר שלב")
+                    }
+                    .font(.heebo(16, 800))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(Theme.orange500, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(color: Theme.orange500.opacity(0.35), radius: 10, y: 5)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("daily.solution")
+            }
             Button(model.isLast ? "לסיכום" : "השאלה הבאה") { model.next() }
                 .buttonStyle(PrimaryButtonStyle())
         }
