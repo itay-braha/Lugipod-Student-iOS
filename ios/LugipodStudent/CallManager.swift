@@ -50,6 +50,8 @@ final class CallManager: NSObject, ObservableObject {
             client = call
             // Voice on, camera off to begin with: the student chooses to show their face.
             call.setInputsEnabled([.camera: false, .microphone: true], completion: nil)
+            // the selfie (front) camera, whenever the camera is turned on
+            call.updateInputs(.set(camera: .set(settings: .set(facingMode: .set(.user)))), completion: nil)
             micOn = true
             cameraOn = false
             call.join(url: url, token: MeetingToken(stringValue: token)) { [weak self] result in

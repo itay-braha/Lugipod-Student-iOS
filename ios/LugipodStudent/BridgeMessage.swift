@@ -11,6 +11,8 @@ enum BridgeMessage: Equatable {
     /// The lesson's state, sent whenever it changes (app build 133+ asks for it with "LugipodStudentApp/2"): "waiting" | "live" |
     /// "review" | "ended", and when it ends (device clock, epoch ms; only while live), so the time left is drawn on the video.
     case session(status: String, endsAt: Date?)
+    /// The step-by-step solution the teacher is showing the room (nil = none): the app slides the page in when one starts.
+    case sharedSolution(questionId: String?, step: Int)
 
     init?(body: Any) {
         guard let dict = body as? [String: Any], let type = dict["type"] as? String else { return nil }
@@ -25,6 +27,9 @@ enum BridgeMessage: Equatable {
         case "session":
             let ms = (dict["endsAt"] as? NSNumber)?.doubleValue
             self = .session(status: (dict["status"] as? String) ?? "waiting", endsAt: ms.map { Date(timeIntervalSince1970: $0 / 1000) })
+        case "sharedSolution":
+            let q = dict["questionId"] as? String
+            self = .sharedSolution(questionId: (q?.isEmpty ?? true) ? nil : q, step: (dict["step"] as? NSNumber)?.intValue ?? 0)
         default: return nil
         }
     }

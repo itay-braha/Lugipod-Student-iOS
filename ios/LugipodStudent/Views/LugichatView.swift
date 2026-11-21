@@ -10,6 +10,10 @@ struct LugichatView: View {
     @State private var pickerItem: PhotosPickerItem?
     @State private var typing = false
     @State private var showChats = false
+    @EnvironmentObject private var router: AppRouter
+    /// Guided mode: "יאללה, מתחילים" under the first answer, 📄 worksheets, the offer sheet (GuidedLugichat.swift).
+    @StateObject private var guided = GuidedFlow()
+    @State private var pickWorksheet = false
 
     private var cameraAvailable: Bool { UIImagePickerController.isSourceTypeAvailable(.camera) }
 
@@ -32,7 +36,12 @@ struct LugichatView: View {
                 pickerItem = nil
             }
         }
+        .sheet(isPresented: $pickWorksheet) {
+            WorksheetPicker { url in Task { await guided.read(file: url) } }.ignoresSafeArea()
+        }
+        .sheet(isPresented: $guided.fileOpen) { FileQuestionsSheet(flow: guided) }
         .onAppear {
+            guided.onOpen = { path in router.open(path: path) }
             #if DEBUG
             if let preview = PreviewMode.lugichat(), !model.hasThread { model.loadPreview(preview) }
             #endif
@@ -87,6 +96,7 @@ struct LugichatView: View {
                 if cameraAvailable { suggestion("צילום של תרגיל שתקוע", icon: "camera.fill", color: Theme.orange500) { showCamera = true } }
                 suggestion("הסבירו לי נושא", icon: "lightbulb.fill", color: Theme.brand600) { draft = "תסבירו לי "; typing = true }
                 suggestion("בדקו לי את הפתרון", icon: "checkmark.seal.fill", color: Theme.emerald600) { draft = "בדקו לי את הפתרון: "; typing = true }
+                suggestion("דף עבודה שלם (PDF או Word)", icon: "doc.text.fill", color: Theme.violet500) { pickWorksheet = true }
             }
             .frame(maxWidth: 420)
             .padding(.top, 8)
@@ -128,7 +138,15 @@ struct LugichatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 18) {
-                    ForEach(model.messages) { m in row(m).id(m.id) }
+                    ForEach(model.messages) { m in
+                        row(m).id(m.id)
+                        if m.id == guidedAnchor, let first = model.messages.first(where: { $0.role == .student }) {
+                            GuidedStartCard(flow: guided, onStart: {
+                                Task { await guided.start(text: first.body, image: first.image) }
+                            }, onDismiss: { guided.dismissed.insert(first.id) })
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
+                    }
                     if model.sending {
                         HStack(spacing: 10) { Lugi(pose: .ponder, height: 52); TypingDots() }.frame(maxWidth: .infinity, alignment: .leading).id("typing")
                     }
@@ -154,6 +172,9 @@ struct LugichatView: View {
                 .frame(maxWidth: .infinity)
             }
             .scrollDismissesKeyboard(.interactively)
+            .sheet(item: Binding(get: { guided.offer.map(OfferBox.init) }, set: { if $0 == nil { guided.offer = nil } })) { box in
+                GuidedOfferSheet(flow: guided, status: box.status)
+            }
             // A saved conversation opens at its latest message, not at the top (the first scroll waits for the thread to be laid out).
             .task {
                 try? await Task.sleep(nanoseconds: 200_000_000)
@@ -163,6 +184,18 @@ struct LugichatView: View {
             .onChange(of: model.sending) { _, _ in withAnimation { proxy.scrollTo("end") } }
             .onChange(of: model.limitHit) { _, _ in withAnimation { proxy.scrollTo("end") } }
         }
+    }
+
+    /// Lugi's first answer in this conversation, once it is complete: the guided card sits under it (until "לא עכשיו").
+    private var guidedAnchor: UUID? {
+        guard let first = model.messages.first(where: { $0.role == .student }), !guided.dismissed.contains(first.id),
+              let bot = model.messages.first(where: { $0.role == .bot }), bot.id != model.streamingId else { return nil }
+        return bot.id
+    }
+
+    private struct OfferBox: Identifiable {
+        let status: GuidedFlow.Status
+        var id: Int { 1 }
     }
 
     @ViewBuilder
@@ -280,6 +313,7 @@ struct LugichatView: View {
                         Button { showCamera = true } label: { attach("camera.fill") }.accessibilityLabel("צילום")
                     }
                     PhotosPicker(selection: $pickerItem, matching: .images) { attach("photo.fill") }.accessibilityLabel("תמונה מהגלריה")
+                    Button { pickWorksheet = true } label: { attach("doc.text.fill") }.accessibilityLabel("דף עבודה: PDF או Word")
                     ZStack(alignment: .leading) {
                         if draft.isEmpty {
                             Text("שאלו את לוגיפוקס…").font(.heebo(16, 500)).foregroundStyle(Theme.slate400)

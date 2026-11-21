@@ -38,6 +38,8 @@ struct LessonCallScreen: View {
     @State private var status = "waiting"
     @State private var endsAt: Date?
     @State private var confirmLeave = false
+    /// The solution the teacher is showing the room right now (the page shows it; nil = none).
+    @State private var sharedSolution: String?
 
     /// `/meeting/lesson/<id>` → ("lesson", id)
     private var meeting: (kind: String, ref: String)? {
@@ -54,6 +56,7 @@ struct LessonCallScreen: View {
                                onLeave: requestLeave,
                                onFiles: { page.send(command: "files"); withAnimation(.easeOut(duration: 0.25)) { showPanel = true } },
                                onMore: { withAnimation(.easeOut(duration: 0.25)) { showPanel.toggle() } },
+                               onSolution: sharedSolution == nil ? nil : { withAnimation(.easeOut(duration: 0.25)) { showPanel = true } },
                                insets: geo.safeAreaInsets)
                     .ignoresSafeArea()
                 // The page is ALWAYS loaded (it keeps the lesson's clock, presence and the files), only slid out of view.
@@ -61,7 +64,7 @@ struct LessonCallScreen: View {
                     Spacer(minLength: 0)
                     VStack(spacing: 0) {
                         HStack {
-                            Text("פרטי השיעור").font(.heebo(15, 900)).foregroundStyle(.white)
+                            Text(sharedSolution == nil ? "פרטי השיעור" : "📐 המורה מראה פתרון").font(.heebo(15, 900)).foregroundStyle(.white)
                             Spacer()
                             Button { withAnimation(.easeOut(duration: 0.25)) { showPanel = false } } label: {
                                 Label("חזרה לשיעור", systemImage: "chevron.forward").font(.heebo(13, 800)).foregroundStyle(.white)
@@ -121,6 +124,10 @@ struct LessonCallScreen: View {
             case .lessonLeft(let early, let teacher): call.stop(); left = (early, teacher); showPanel = false
             case .closeRoom: close()
             case .session(let s, let e): status = s; endsAt = e
+            case .sharedSolution(let q, _):
+                // a new solution on the board: slide it in, like the website's side panel (the student can slide it away again)
+                if let q, q != sharedSolution { withAnimation(.easeOut(duration: 0.3)) { showPanel = true } }
+                sharedSolution = q
             }
         }, controller: page)
     }
@@ -160,6 +167,8 @@ struct CallVideoPanel: View {
     var onLeave: () -> Void
     var onFiles: (() -> Void)? = nil
     var onMore: (() -> Void)? = nil
+    /// Set while the teacher shows a step-by-step solution: a button that brings it back.
+    var onSolution: (() -> Void)? = nil
     var insets: EdgeInsets = EdgeInsets()
 
     var body: some View {
@@ -183,6 +192,13 @@ struct CallVideoPanel: View {
                                 .background(left <= 120 ? Theme.rose500 : Color.white.opacity(0.18), in: Capsule())
                                 .accessibilityLabel("נותרו \(left / 60) דקות")
                         }
+                    }
+                    if let onSolution {
+                        Button(action: onSolution) {
+                            Label("פתרון", systemImage: "pencil.and.ruler.fill").font(.heebo(13, 800)).foregroundStyle(.white)
+                                .padding(.horizontal, 12).padding(.vertical, 9).background(Theme.brand600, in: Capsule())
+                        }
+                        .accessibilityLabel("הפתרון שהמורה מראה")
                     }
                     if let onFiles {
                         Button(action: onFiles) {
