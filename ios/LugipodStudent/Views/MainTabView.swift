@@ -31,7 +31,7 @@ final class InboxModel: ObservableObject {
             loaded = true
             PushNotifications.shared.setBadge(r.unread)
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("MainTabView")
         } catch {
             self.error = "לא הצלחנו לטעון את ההתראות"
         }
@@ -84,9 +84,9 @@ final class HomeModel: ObservableObject {
             error = nil
             encore = await offer
         } catch APIError.notAStudent {
-            await AuthStore.shared.signOut(notice: APIError.notAStudentNotice)
+            await AuthStore.shared.signOut(notice: APIError.notAStudentNotice, reason: "not_a_student")
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("MainTabView")
         } catch {
             DebugLog.write("home.load failed: \(error)")
             // Keep showing what we have; only say something when there is nothing to show.

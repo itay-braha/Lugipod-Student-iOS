@@ -65,9 +65,9 @@ final class DailyModel: ObservableObject {
             let raw = try await API.request("GET", "/api/native/student/daily")
             apply(try API.decoder.decode(DailyPayload.self, from: raw))
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("DailyModel")
         } catch APIError.notAStudent {
-            await AuthStore.shared.signOut(notice: APIError.notAStudentNotice)
+            await AuthStore.shared.signOut(notice: APIError.notAStudentNotice, reason: "not_a_student")
         } catch {
             if payload == nil { phase = .failed("לא הצלחנו לטעון את האתגר. בדקו חיבור ונסו שוב.") }
         }

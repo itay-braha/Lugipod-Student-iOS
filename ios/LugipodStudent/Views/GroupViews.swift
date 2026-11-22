@@ -28,7 +28,7 @@ final class GroupDetailModel: ObservableObject {
             LocalCache.write(key, raw)
             failed = false
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("GroupViews")
         } catch {
             if detail == nil { failed = true }
         }

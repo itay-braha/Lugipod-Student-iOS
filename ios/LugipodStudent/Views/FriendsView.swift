@@ -21,7 +21,7 @@ final class FriendsModel: ObservableObject {
             LocalCache.write("friends", raw)
             error = nil
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("FriendsView")
         } catch {
             if data == nil { self.error = "לא הצלחנו לטעון את החברים. בדקו חיבור ונסו שוב." }
         }

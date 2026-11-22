@@ -123,7 +123,7 @@ final class HistoryModel: ObservableObject {
             LocalCache.write("history", raw)
             error = nil
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("HistoryView")
         } catch {
             if lessons == nil { self.error = "לא הצלחנו לטעון את ההיסטוריה." }
         }

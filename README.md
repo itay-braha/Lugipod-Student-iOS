@@ -26,6 +26,8 @@ Architecture, API and plans live in the Lugipod repo: `docs/STUDENT_APP.md`.
  AlertsView ── Bearer ──────────────────►  GET/POST /api/native/alerts
  Push       ── token ───────────────────►  POST/DELETE /api/native/push
  WebScreen  ── session form post ───────►  POST /api/native/web-login  (cookies for the web pages)
+            ── after each token refresh ──►  POST /api/native/web-login sync=1 (cookie re-sync, 204)
+ AuthStore  ── login events ────────────►  POST /api/native/auth-event  (native_auth_events)
 ```
 
 ## Build and test
@@ -52,3 +54,7 @@ Push also needs, on the server (Vercel), `APNS_KEY_P8`, `APNS_KEY_ID`, `APNS_TEA
 2. Home loads the lessons and groups; when a lesson is within 15 minutes "הצטרפות" opens the room: allow camera and microphone.
 3. Lugichat → צילום שאלה: the answer arrives with typeset formulas; ask for a hint; check the free-answers counter drops.
 4. Practice shows the dashboard; the daily challenge is there.
+
+## Staying signed in
+
+Every login is a paid WhatsApp code. The session lives in `SessionVault` (the SDK's Keychain item, a file copy and memory); the app signs out only when the person presses התנתקות, the account is the wrong kind, or Supabase really rejected the session. See `docs/STAYING_SIGNED_IN.md` in the website repo (itay-braha/mitsmatschool) for the full design and the `native_auth_events` reports.

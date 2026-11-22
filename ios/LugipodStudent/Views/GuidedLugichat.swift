@@ -92,7 +92,7 @@ final class GuidedFlow: ObservableObject {
             if preparing != nil { fileError = message }
             preparing = nil
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("GuidedLugichat")
         } catch {
             card = .failed("אין חיבור כרגע. נסו שוב בעוד רגע.")
             preparing = nil
@@ -153,7 +153,7 @@ final class GuidedFlow: ObservableObject {
         } catch APIError.server(_, let message) where !message.isEmpty {
             fileError = message
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("GuidedLugichat")
         } catch {
             fileError = "לא הצלחנו לעבור על הקובץ הפעם. נסו שוב."
         }

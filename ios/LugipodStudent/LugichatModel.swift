@@ -155,7 +155,7 @@ final class LugichatModel: ObservableObject {
             imageBase64 = await Task.detached { lastImage.map { LugichatModel.encode($0) } ?? "" }.value
             if answerPending, messages.last?.role == .student { await run() }
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("LugichatModel")
         } catch {
             self.error = "לא הצלחנו לפתוח את השיחה. נסו שוב."
         }
@@ -185,7 +185,7 @@ final class LugichatModel: ObservableObject {
             // The family has no room left under its limit: say so and offer the one thing that helps.
             pack = message.contains("תקרה") ? .capReached : .failed(message.isEmpty ? "לא הצלחנו כרגע. נסו שוב." : message)
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("LugichatModel")
         } catch { pack = .failed("לא הצלחנו כרגע. בדקו חיבור ונסו שוב.") }
     }
 
@@ -248,7 +248,7 @@ final class LugichatModel: ObservableObject {
             limitHit = true
             quota = Quota(freeLeft: 0, freePerDay: nil, packLeft: 0, canAsk: false)
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("LugichatModel")
         } catch APIError.server(_, let message) where !message.isEmpty {
             error = message
         } catch {

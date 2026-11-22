@@ -34,7 +34,7 @@ final class AvailabilityModel: ObservableObject {
             original = fresh
             loaded = true
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("AvailabilityView")
         } catch {
             if !loaded { self.error = "לא הצלחנו לטעון את השעות. בדקו חיבור ונסו שוב." }
         }

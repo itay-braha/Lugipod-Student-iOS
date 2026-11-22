@@ -15,7 +15,7 @@ final class ProfileModel: ObservableObject {
             LocalCache.write("profile", raw)
             error = nil
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("ProfileSheet")
         } catch {
             if data == nil { self.error = "לא הצלחנו לטעון את הפרופיל." }
         }

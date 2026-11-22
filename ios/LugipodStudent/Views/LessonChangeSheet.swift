@@ -34,7 +34,7 @@ final class LessonChangeModel: ObservableObject {
             let raw = try await API.request("GET", "/api/student/lesson/\(lessonId)/options")
             options = try API.decoder.decode(LessonOptions.self, from: raw)
         } catch APIError.notSignedIn {
-            await AuthStore.shared.signOut()
+            await AuthStore.shared.sessionLost("LessonChangeSheet")
         } catch { loadFailed = true }
     }
 
