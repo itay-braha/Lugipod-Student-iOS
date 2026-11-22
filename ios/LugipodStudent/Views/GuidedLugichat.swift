@@ -105,7 +105,7 @@ final class GuidedFlow: ObservableObject {
             offerError = nil
             offer = s
         } else {
-            card = .failed("הפתרונות המודרכים של היום נגמרו. מחר יש עוד.")
+            card = .failed("לוגי לא הצליח לפתוח את הפתרון כרגע. נסו שוב בעוד רגע.")
         }
     }
 
@@ -222,12 +222,9 @@ struct GuidedOfferSheet: View {
     @ObservedObject var flow: GuidedFlow
     let status: GuidedFlow.Status
 
+    // never what we gave or why it stopped (founder 2026-11-22): the invitation to continue and what it comes with
     private var tomorrow: String {
-        switch status.freeReason {
-        case "ceiling": return "החודש כבר קיבלתם הרבה חינם. כדי להמשיך עם לוגי צריך חבילה."
-        case "daily": return "מחר מחכה לכם עוד פתרון מודרך חינם."
-        default: return "מחר מחכים לכם עוד \(status.freePerDay ?? 1) פתרונות מודרכים חינם."
-        }
+        status.freeReason == "ceiling" ? "" : "או שממשיכים מחר. "
     }
 
     var body: some View {
@@ -236,8 +233,8 @@ struct GuidedOfferSheet: View {
                 HStack(spacing: 12) {
                     Lugi(pose: .wave, height: 70)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("הפתרונות המודרכים של היום נגמרו").font(.heebo(20, 900)).foregroundStyle(Theme.ink)
-                        Text("\(tomorrow) בינתיים, ממשיכים עם לוגי?").font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
+                        Text("ממשיכים עם לוגי? 🦊").font(.heebo(20, 900)).foregroundStyle(Theme.ink)
+                        Text("\(tomorrow)החבילה נספרת בצריכה החודשית של המשפחה.").font(.heebo(14, 500)).foregroundStyle(Theme.slate600)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -271,7 +268,7 @@ struct GuidedOfferSheet: View {
                 if let e = flow.offerError {
                     Text(e).font(.heebo(13, 700)).foregroundStyle(Theme.rose600).fixedSize(horizontal: false, vertical: true)
                 }
-                Text("כל פתרון מודרך כולל \(status.messagesIncluded ?? 8) הודעות ללוגי. הלוגי נספרים בצריכה שלכם החודש. הפתרון המלא (בלי בדיקה של לוגי) תמיד פתוח וחינם.")
+                Text("כל פתרון מודרך כולל שיחה עם לוגי. הלוגי נספרים בצריכה החודשית של המשפחה.")
                     .font(.heebo(12, 500)).foregroundStyle(Theme.slate500).fixedSize(horizontal: false, vertical: true)
             }
             .padding(20)
