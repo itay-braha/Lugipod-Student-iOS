@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import WebKit
 
 /// Guided mode from Lugichat (website: docs/SOLUTIONS_EVERYWHERE.md §4–§5). Under Lugi's first answer to a question: "יאללה, מתחילים 🦊"
 /// turns the typed or photographed question into one of ours with a stored solution and opens it in the guided player (every step closed,
@@ -33,7 +34,15 @@ final class GuidedFlow: ObservableObject {
         var id: Int { n }
     }
 
-    enum Card: Equatable { case idle, busy, failed(String), parent(String) }
+    enum Card: Equatable { case idle, busy, failed(String), parent(String), wrong }
+    /// Lugi read the question and shows it back first ("זו השאלה?", as on the website); the session starts on "כן".
+    struct Prepared: Equatable {
+        let questionId: String
+        let prompt: String
+        let choices: [String]
+        let figureSvg: String?
+    }
+    @Published var confirm: Prepared?
     /// The start card under the first answer (per conversation: the first student message's id).
     @Published var card: Card = .idle
     @Published var dismissed: Set<UUID> = []
@@ -59,7 +68,9 @@ final class GuidedFlow: ObservableObject {
     func start(text: String, image: UIImage?) async {
         guard card != .busy else { return }
         card = .busy
-        var body: [String: Any] = ["text": text]
+        confirm = nil
+        // read and show back first: nothing is used until the student says it is the question (the solving starts now, though)
+        var body: [String: Any] = ["text": text, "prepare": true]
         if let image {
             body["imageBase64"] = await Task.detached { LugichatModel.encode(image) }.value
             body["mimeType"] = "image/jpeg"
@@ -67,14 +78,33 @@ final class GuidedFlow: ObservableObject {
         await post(body) { [weak self] in await self?.start(text: text, image: image) }
     }
 
+    /// "כן, זו השאלה": the session starts and the guided player opens.
+    func confirmStart() async {
+        guard let c = confirm, card != .busy else { return }
+        card = .busy
+        await post(["questionId": c.questionId]) { [weak self] in await self?.confirmStart() }
+    }
+
+    /// "לא בדיוק": the student writes what is different or photographs it again.
+    func notThisOne() {
+        confirm = nil
+        card = .wrong
+    }
+
     private func post(_ body: [String: Any], again: @escaping () async -> Void) async {
-        struct Reply: Decodable { let ok: Bool?; let sessionId: String?; let questionId: String? }
+        struct Reply: Decodable { let ok: Bool?; let sessionId: String?; let questionId: String?; let prepared: Bool?; let prompt: String?; let choices: [String]?; let figureSvg: String? }
         do {
             let data = try await API.request("POST", "/api/student/guided/start", json: body, timeout: 240)
             let r = try API.decoder.decode(Reply.self, from: data)
             card = .idle
             preparing = nil
+            if r.prepared == true, let q = r.questionId {
+                confirm = Prepared(questionId: q, prompt: r.prompt ?? "", choices: r.choices ?? [], figureSvg: r.figureSvg)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                return
+            }
             if let q = r.questionId, let s = r.sessionId {
+                confirm = nil
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 fileOpen = false
                 onOpen?("/solution/\(q)?guided=\(s)&app=1")
@@ -174,13 +204,73 @@ struct GuidedStartCard: View {
     let onDismiss: () -> Void
 
     var body: some View {
+        if let c = flow.confirm {
+            confirmCard(c)
+        } else if flow.card == .wrong {
+            Text("🦊 אין בעיה. כתבו לי מה שונה בשאלה, או צלמו אותה שוב קרוב יותר, ואכין אותה מחדש.")
+                .font(.heebo(14, 600)).foregroundStyle(Theme.slate700).fixedSize(horizontal: false, vertical: true)
+                .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.slate200, lineWidth: 1))
+        } else {
+            startCard
+        }
+    }
+
+    /// "זו השאלה?" — the question as Lugi read it (its drawing redrawn in our style), before anything starts.
+    private func confirmCard(_ c: GuidedFlow.Prepared) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Lugi(pose: .ponder, height: 44)
+                Text("זו השאלה?").font(.heebo(17, 900)).foregroundStyle(Theme.ink)
+                Spacer(minLength: 0)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                if let svg = c.figureSvg, !svg.isEmpty {
+                    FigureSVG(svg: svg).frame(height: 200).frame(maxWidth: .infinity)
+                }
+                RichText(text: c.prompt, font: .heebo(15, 600))
+                ForEach(Array(c.choices.enumerated()), id: \.offset) { i, choice in
+                    RichText(text: "\(i + 1). \(choice)", font: .heebo(14, 500), color: Theme.slate600)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.slate200, lineWidth: 1))
+            if case .failed(let message) = flow.card {
+                Text(message).font(.heebo(13, 700)).foregroundStyle(Theme.rose600)
+            }
+            HStack(spacing: 8) {
+                Button { Task { await flow.confirmStart() } } label: {
+                    HStack(spacing: 6) {
+                        if flow.card == .busy { ProgressView().tint(.white) }
+                        Text(flow.card == .busy ? "פותח…" : "כן, יאללה מתחילים 🦊").font(.heebo(16, 900)).foregroundStyle(.white)
+                    }
+                    .frame(maxWidth: .infinity).frame(height: 48)
+                    .background(Theme.orange500, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .shadow(color: Theme.orange500.opacity(0.35), radius: 8, y: 4)
+                }
+                .buttonStyle(.plain)
+                .disabled(flow.card == .busy)
+                .accessibilityIdentifier("guided-confirm")
+                Button("לא בדיוק") { flow.notThisOne() }.font(.heebo(14, 700)).foregroundStyle(Theme.slate500).padding(.horizontal, 8)
+            }
+        }
+        .padding(14)
+        .background(LinearGradient(colors: [Color(hex: 0xFFF7ED), .white], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.orange300, lineWidth: 1))
+    }
+
+    private var startCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
                 Lugi(pose: flow.card == .busy ? .search : .wave, height: 54)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(flow.card == .busy ? "לוגי קורא את השאלה ומכין פתרון…" : "שלוגי ידריך אותך בשאלה הזו, שלב אחר שלב?")
+                    Text(flow.card == .busy ? "לוגי קורא את השאלה…" : "שלוגי ידריך אותך בשאלה הזו, שלב אחר שלב?")
                         .font(.heebo(16, 800)).foregroundStyle(Theme.ink)
-                    Text(flow.card == .busy ? "בפעם הראשונה זה לוקח עד דקה. אפשר להישאר כאן." : "עם שרטוט, מטרה לכל שלב, ולוגי בודק כל ניסיון שלך.")
+                    Text(flow.card == .busy ? "עוד רגע אראה לכם אותה, כדי לוודא שהבנתי נכון." : "אתם פותרים, לוגי בודק כל צעד, עם שרטוט ומטרה לכל שלב.")
                         .font(.heebo(13, 500)).foregroundStyle(Theme.slate600)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -341,6 +431,31 @@ struct FileQuestionsSheet: View {
             }
         }
         .environment(\.layoutDirection, .rightToLeft)
+    }
+}
+
+/// The question's drawing (our own SVG, sanitized by the server) in a small non-scrolling web view.
+struct FigureSVG: UIViewRepresentable {
+    let svg: String
+
+    func makeUIView(context: Context) -> WKWebView {
+        let web = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+        web.isOpaque = false
+        web.backgroundColor = .clear
+        web.scrollView.backgroundColor = .clear
+        web.scrollView.isScrollEnabled = false
+        web.loadHTMLString(Self.page(svg), baseURL: nil)
+        return web
+    }
+
+    func updateUIView(_ web: WKWebView, context: Context) {}
+
+    static func page(_ svg: String) -> String {
+        """
+        <!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+        <style>html,body{margin:0;height:100%;background:transparent;display:flex;align-items:center;justify-content:center}
+        svg{max-width:100%;max-height:100%;height:auto;width:auto}</style></head><body>\(svg)</body></html>
+        """
     }
 }
 
