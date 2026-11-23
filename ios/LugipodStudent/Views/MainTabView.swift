@@ -118,10 +118,16 @@ struct AppTabBar: View {
                         VStack(spacing: 3) {
                             ZStack {
                                 Circle().fill(LinearGradient(colors: [Color(hex: 0xFB923C), Color(hex: 0xEA580C)], startPoint: .top, endPoint: .bottom))
-                                    .frame(width: 58, height: 58)
+                                    .frame(width: 60, height: 60)
                                     .shadow(color: Color(hex: 0xEA580C).opacity(0.55), radius: 9, y: 5)
-                                    .overlay(Circle().strokeBorder(Color.white, lineWidth: 4))
-                                Text("🦊").font(.system(size: 28))
+                                    .overlay(Circle().strokeBorder(Color.white, lineWidth: 3))
+                                // Lugifox himself (the head), on a cream disc inside the orange ring
+                                Image("Lugi-peek").resizable().scaledToFill()
+                                    .frame(width: 66, height: 66)
+                                    .offset(y: 9)
+                                    .frame(width: 48, height: 48)
+                                    .background(Color(hex: 0xFFF7ED))
+                                    .clipShape(Circle())
                             }
                             .offset(y: -14)
                             .padding(.bottom, -14)
