@@ -102,8 +102,8 @@ struct AppTabBar: View {
     private struct Item { let tab: AppRouter.Tab; let title: String; let icon: String; let color: Color }
     private let items: [Item] = [
         Item(tab: .home, title: "הקבוצות", icon: "house.fill", color: Theme.brand600),
-        Item(tab: .lugichat, title: "לוגיצ׳אט", icon: "sparkles", color: Theme.violet500),
-        Item(tab: .practice, title: "תרגול", icon: "flame.fill", color: Theme.orange500),
+        Item(tab: .practice, title: "תרגול", icon: "flame.fill", color: Theme.brand600),
+        Item(tab: .lugichat, title: "לוגיצ׳אט", icon: "sparkles", color: Theme.orange500),
         Item(tab: .friends, title: "חברים", icon: "person.2.fill", color: Color(hex: 0xEC4899)),
         Item(tab: .more, title: "עוד", icon: "square.grid.2x2.fill", color: Theme.emerald600),
     ]
@@ -112,6 +112,28 @@ struct AppTabBar: View {
         HStack(spacing: 0) {
             ForEach(items, id: \.tab) { item in
                 let on = selection == item.tab
+                if item.tab == .lugichat {
+                    // the centre: Lugichat, raised, always in our orange — the feature we want noticed
+                    Button { selection = item.tab } label: {
+                        VStack(spacing: 3) {
+                            ZStack {
+                                Circle().fill(LinearGradient(colors: [Color(hex: 0xFB923C), Color(hex: 0xEA580C)], startPoint: .top, endPoint: .bottom))
+                                    .frame(width: 58, height: 58)
+                                    .shadow(color: Color(hex: 0xEA580C).opacity(0.55), radius: 9, y: 5)
+                                    .overlay(Circle().strokeBorder(Color.white, lineWidth: 4))
+                                Text("🦊").font(.system(size: 28))
+                            }
+                            .offset(y: -14)
+                            .padding(.bottom, -14)
+                            Text(item.title).font(.heebo(11, 900)).foregroundStyle(Theme.orange500)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(item.title)
+                    .accessibilityAddTraits(on ? .isSelected : [])
+                } else {
                 Button { selection = item.tab } label: {
                     VStack(spacing: 4) {
                         Image(systemName: item.icon)
@@ -127,6 +149,7 @@ struct AppTabBar: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.title)
                 .accessibilityAddTraits(on ? .isSelected : [])
+                }
             }
         }
         .frame(maxWidth: 560)
@@ -147,6 +170,8 @@ struct MainTabView: View {
     @Environment(\.scenePhase) private var scenePhase
     /// Set once the welcome tour has been shown (finished or skipped). "עוד" can open it again.
     @AppStorage("lugipod.tour.v1") private var tourSeen = false
+    /** a picture shared into Lugichat from another app: its conversation opens natively, over the tabs */
+    @State private var sharedChat = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -154,7 +179,7 @@ struct MainTabView: View {
             Group {
                 switch router.tab {
                 case .home: HomeView()
-                case .lugichat: LugichatView()
+                case .lugichat: WebScreen(path: "/lugichat", showsClose: false)
                 case .practice: DailyChallengeView()
                 case .friends: FriendsView()
                 case .more: MoreView()
@@ -208,6 +233,16 @@ struct MainTabView: View {
                 Task { await Perf.shared.flush() }
             }
         }
+        .sheet(isPresented: $sharedChat) {
+            LugichatView()
+                .environmentObject(chat)
+                .environmentObject(home)
+                .environmentObject(router)
+                .environmentObject(inbox)
+                .environmentObject(daily)
+                .environmentObject(friends)
+                .environment(\.layoutDirection, .rightToLeft)
+        }
         .sheet(isPresented: $router.showAlerts) {
             // A small sheet over the home, not a full screen: the bell is a glance, not a place.
             AlertsView()
@@ -223,7 +258,7 @@ struct MainTabView: View {
     /// let Lugifox answer it.
     private func openSharedConversationIfAny() {
         guard let request = ShareBridge.takeOpenRequest(), request.kind == "lugichat" else { return }
-        router.tab = .lugichat
+        sharedChat = true
         Task { await chat.open(chatId: request.id, answerPending: true) }
     }
 
