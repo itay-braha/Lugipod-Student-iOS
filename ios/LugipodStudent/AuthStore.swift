@@ -98,10 +98,19 @@ final class AuthStore: ObservableObject {
     /// it restarted, e.g. an app pre-launched by iOS) it waits instead of showing the login screen.
     private func settle(reason: String) {
         switch vault.presence(storageKey) {
-        case .present: state = .signedIn
+        case .present:
+            state = .signedIn
+            unreadableChecks = 0
         case .absent: moveToSignedOut(reason: reason == "launch" ? "no_session_at_launch" : "no_session_\(reason)")
         case .unreadable:
             if state != .signedIn { state = .loading }
+            unreadableChecks = reason == "retry" ? unreadableChecks + 1 : 0
+            // Waiting is for a device that is still locked. Unlocked and still unreadable after ~30 s: show the login screen rather
+            // than a loading screen forever (the next becoming-active check still brings the login back if it turns up).
+            if unreadableChecks >= 15 && UIApplication.shared.isProtectedDataAvailable {
+                moveToSignedOut(reason: "unreadable_timeout")
+                return
+            }
             if reason != "retry" { Task { await AuthTelemetry.report("session_unreadable", reason) } }
             Task {
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
@@ -143,6 +152,7 @@ final class AuthStore: ObservableObject {
     }
 
     private var explicitSignOut = false
+    private var unreadableChecks = 0
     private var lastSignOutReason: String {
         get { UserDefaults.standard.string(forKey: "lugipod.lastSignOutReason") ?? "unknown" }
         set { UserDefaults.standard.set(newValue, forKey: "lugipod.lastSignOutReason") }
@@ -284,7 +294,7 @@ enum AuthTelemetry {
 
     static func report(_ event: String, _ detail: String? = nil) async {
         #if DEBUG
-        if PreviewMode.isOn || AuthStore.autologin != nil { return }
+        return   // debug builds (CI, simulator, previews) never report: only real installs
         #endif
         guard AppConfig.isConfigured else { return }
         var req = URLRequest(url: API.baseURL.appendingPathComponent("api/native/auth-event"))

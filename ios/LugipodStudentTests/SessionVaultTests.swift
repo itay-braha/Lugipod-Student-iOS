@@ -54,6 +54,13 @@ final class SessionVaultTests: XCTestCase {
         XCTAssertThrowsError(try vault.retrieve(key: key))
     }
 
+    func testKeychainThatAlwaysFailsWithNoCopyIsNoLogin() {
+        let keychain = FakeStore(), file = FakeStore()
+        keychain.failReads = -34018                            // e.g. a build without the Keychain entitlement (CI simulator)
+        let vault = SessionVault(primary: keychain, backup: file)
+        XCTAssertEqual(vault.presence(key), .absent)          // the login screen, not an endless loading screen
+    }
+
     func testMissingKeychainItemIsRestoredFromTheFile() throws {
         let keychain = FakeStore(), file = FakeStore()
         file.items[key] = session

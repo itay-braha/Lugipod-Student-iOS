@@ -72,12 +72,21 @@ final class SessionVault: AuthLocalStorage, @unchecked Sendable {
                 throw VaultError.unreadable(errSecItemNotFound)
             }
         case .failed(let status):
-            if case .found(let copy) = backup.read(key) {
+            switch backup.read(key) {
+            case .found(let copy):
                 remember(key, copy)
                 onRepair?("keychain_unreadable_\(status)_used_file")
                 return copy
+            case .notFound:
+                // No copy was ever written (every store writes one), so nothing this version stored is hidden: a Keychain that keeps
+                // failing (e.g. a build without the entitlement) must not leave the app waiting forever. Cached for this run; the
+                // next check (becoming active, sending a code) forgets the cache and reads the Keychain again.
+                remember(key, nil)
+                onRepair?("keychain_unreadable_\(status)_no_file")
+                return nil
+            case .failed:
+                throw VaultError.unreadable(status)   // nothing readable yet (before the first unlock): wait, never "signed out"
             }
-            throw VaultError.unreadable(status)
         }
     }
 
